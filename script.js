@@ -1,8 +1,7 @@
 (() => {
   const CORE_VERSION = "20260827-1";
-  let lastApiError = "";
 
-  installApiDiagnostics();
+  installFriendlyFormErrors();
   addUpgradeStyles();
   upgradeBrand();
   ensureClientEmailField();
@@ -14,31 +13,17 @@
   core.onerror = () => console.error("MALARS: не удалось загрузить основной скрипт сайта");
   document.head.appendChild(core);
 
-  function installApiDiagnostics() {
-    const nativeFetch = window.fetch.bind(window);
-
-    window.fetch = async (...args) => {
-      const response = await nativeFetch(...args);
-
-      try {
-        const data = await response.clone().json();
-        lastApiError = data && data.ok === false
-          ? String(data.error || "Apps Script вернул ошибку без описания")
-          : "";
-      } catch (_) {
-        lastApiError = "";
-      }
-
-      return response;
-    };
-
+  function installFriendlyFormErrors() {
     const observer = new MutationObserver(() => {
       document.querySelectorAll(".form-status").forEach(status => {
-        if (
-          lastApiError &&
-          status.textContent.trim().startsWith("Не удалось отправить данные")
-        ) {
-          status.textContent = `Не удалось отправить: ${lastApiError}`;
+        const text = status.textContent.trim();
+
+        if (text.startsWith("Не удалось отправить данные")) {
+          status.textContent = "Не удалось отправить данные. Проверьте корректность заполнения полей.";
+        }
+
+        if (text.startsWith("Не удалось отправить анкету")) {
+          status.textContent = "Не удалось отправить анкету. Проверьте корректность заполнения полей.";
         }
       });
     });
