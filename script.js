@@ -1,7 +1,4 @@
-
-// После создания Google Apps Script вставьте сюда URL веб-приложения.
-// Пример: const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/XXXX/exec";
-const GOOGLE_SCRIPT_URL = "";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz3ycpkm_msGzEVbpQkdaedUGwaAjzkA4_Xbuj8X4MCaKyuqXFtPY1Yuq4M2zLF9yIb/exec";
 
 document.getElementById("year").textContent = new Date().getFullYear();
 
@@ -17,11 +14,6 @@ document.querySelectorAll("form[data-form-type]").forEach((form) => {
     data.page = window.location.href;
     data.submittedAt = new Date().toISOString();
 
-    if (!GOOGLE_SCRIPT_URL) {
-      status.textContent = "Сайт работает. Осталось подключить приём заявок в Google Sheets.";
-      return;
-    }
-
     button.disabled = true;
     button.textContent = "Отправляем…";
     status.textContent = "";
@@ -29,21 +21,33 @@ document.querySelectorAll("form[data-form-type]").forEach((form) => {
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
-        headers: {"Content-Type": "text/plain;charset=utf-8"},
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
         body: JSON.stringify(data)
       });
 
       const result = await response.json();
-      if (!result.ok) throw new Error(result.error || "Ошибка отправки");
+
+      if (!result.ok) {
+        throw new Error(result.error || "Ошибка отправки");
+      }
 
       form.reset();
       status.textContent = "Готово. Данные отправлены.";
+
     } catch (error) {
       console.error(error);
-      status.textContent = "Не удалось отправить. Проверьте подключение формы.";
+      status.textContent = "Не удалось отправить данные. Попробуйте ещё раз.";
+
     } finally {
       button.disabled = false;
-      button.textContent = form.dataset.formType === "client" ? "Отправить задачу" : "Отправить данные";
+
+      if (form.dataset.formType === "client") {
+        button.textContent = "Отправить задачу";
+      } else {
+        button.textContent = "Отправить данные";
+      }
     }
   });
 });
