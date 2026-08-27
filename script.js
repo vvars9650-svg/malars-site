@@ -1,6 +1,8 @@
 (() => {
   const CORE_VERSION = "20260827-1";
+  let lastApiError = "";
 
+  installApiDiagnostics();
   addUpgradeStyles();
   upgradeBrand();
   ensureClientEmailField();
@@ -11,6 +13,42 @@
   core.onload = () => enhancePartnerWizard();
   core.onerror = () => console.error("MALARS: не удалось загрузить основной скрипт сайта");
   document.head.appendChild(core);
+
+  function installApiDiagnostics() {
+    const nativeFetch = window.fetch.bind(window);
+
+    window.fetch = async (...args) => {
+      const response = await nativeFetch(...args);
+
+      try {
+        const data = await response.clone().json();
+        lastApiError = data && data.ok === false
+          ? String(data.error || "Apps Script вернул ошибку без описания")
+          : "";
+      } catch (_) {
+        lastApiError = "";
+      }
+
+      return response;
+    };
+
+    const observer = new MutationObserver(() => {
+      document.querySelectorAll(".form-status").forEach(status => {
+        if (
+          lastApiError &&
+          status.textContent.trim().startsWith("Не удалось отправить данные")
+        ) {
+          status.textContent = `Не удалось отправить: ${lastApiError}`;
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      characterData: true
+    });
+  }
 
   function upgradeBrand() {
     const mark = document.querySelector(".brand-mark");
