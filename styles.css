@@ -150,3 +150,453 @@ h1 span{color:#5d655a}
   .form-panel{padding:22px}
   .final-box{padding:28px;align-items:stretch;flex-direction:column}
 }
+/* =========================================================
+   MALARS — АНКЕТА ПОДРЯДЧИКА V2
+========================================================= */
+
+.form-panel select {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #cfd4cd;
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 15px;
+  min-height: 50px;
+  outline: none;
+  color: var(--text);
+}
+
+.form-panel select:focus {
+  border-color: #8f9a89;
+  box-shadow: 0 0 0 3px rgba(159, 230, 29, .18);
+}
+
+
+/* Исправляем старое правило input width:100% */
+
+.form-panel input[type="checkbox"],
+.form-panel input[type="radio"] {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  accent-color: var(--dark);
+}
+
+
+/* Главная карточка анкеты */
+
+.partner-wizard {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 38px;
+  background: #fff;
+  border-radius: 28px;
+}
+
+
+/* Прогресс */
+
+.wizard-progress {
+  margin-bottom: 34px;
+}
+
+.wizard-progress-bar {
+  height: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  background: #e7ebe4;
+  border-radius: 999px;
+}
+
+.wizard-progress-bar span {
+  display: block;
+  width: 20%;
+  height: 100%;
+  background: var(--accent-strong);
+  border-radius: 999px;
+  transition: width .25s ease;
+}
+
+.wizard-progress-items {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.wizard-progress-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f4f6f2;
+
+  color: #969d93;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.wizard-progress-item.active {
+  background: var(--dark);
+  color: #fff;
+}
+
+.wizard-progress-item.done {
+  background: #efffcf;
+  color: #34402b;
+}
+
+
+/* Шаги */
+
+.wizard-step[hidden],
+.wizard-success[hidden] {
+  display: none !important;
+}
+
+.wizard-step h3 {
+  margin-bottom: 8px;
+  font-size: 30px;
+  letter-spacing: -.03em;
+}
+
+.wizard-help {
+  margin-bottom: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.field-title {
+  margin: 28px 0 12px;
+
+  color: #596055;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+
+/* Сетки выбора */
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.category-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.choice-grid.small-grid {
+  grid-template-columns: repeat(2, minmax(0, 180px));
+}
+
+
+/* Карточка-галочка */
+
+.form-panel .choice-card {
+  position: relative;
+
+  display: flex !important;
+  align-items: center;
+  gap: 11px;
+
+  min-height: 54px;
+  margin: 0 !important;
+  padding: 12px 14px;
+
+  border: 1px solid var(--line);
+  border-radius: 14px;
+
+  background: #fff;
+
+  color: var(--text);
+  font-size: 13px !important;
+  font-weight: 650 !important;
+
+  cursor: pointer;
+
+  transition:
+    border-color .15s ease,
+    background .15s ease,
+    transform .15s ease;
+}
+
+.form-panel .choice-card:hover {
+  border-color: #aeb5aa;
+  transform: translateY(-1px);
+}
+
+.form-panel .choice-card input[type="checkbox"],
+.form-panel .choice-card input[type="radio"] {
+  flex: 0 0 auto;
+
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  accent-color: var(--dark);
+}
+
+.form-panel .choice-card span {
+  line-height: 1.3;
+}
+
+
+/* Выбранная карточка */
+
+.form-panel .choice-card:has(input:checked) {
+  background: #efffcf;
+  border-color: #9fbd68;
+}
+
+.form-panel .choice-card.compact {
+  min-height: 48px;
+  padding: 11px 13px;
+}
+
+.form-panel .category-chip {
+  min-height: 62px;
+}
+
+
+/* Конкретные виды работ */
+
+.work-details {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.work-group {
+  padding: 18px;
+
+  border: 1px solid var(--line);
+  border-radius: 18px;
+
+  background: #f7f8f5;
+}
+
+.work-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.work-group-title strong {
+  font-size: 15px;
+}
+
+.text-button {
+  padding: 4px 0;
+
+  border: 0;
+  background: transparent;
+
+  color: #56614f;
+  font-size: 12px;
+  font-weight: 800;
+
+  text-decoration: underline;
+  text-underline-offset: 3px;
+
+  cursor: pointer;
+}
+
+
+/* География */
+
+.geography-main {
+  margin-top: 26px;
+}
+
+.nationwide-card {
+  max-width: 420px;
+  margin: 8px 0 20px !important;
+}
+
+.region-search {
+  max-width: 440px;
+  margin-bottom: 12px !important;
+}
+
+.region-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  max-height: 320px;
+  padding: 10px;
+
+  overflow-y: auto;
+
+  border: 1px solid var(--line);
+  border-radius: 16px;
+
+  background: #f7f8f5;
+}
+
+.region-option[hidden] {
+  display: none !important;
+}
+
+
+/* Кнопки */
+
+.wizard-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+
+  margin-top: 30px;
+  padding-top: 22px;
+
+  border-top: 1px solid var(--line);
+}
+
+.wizard-buttons .button {
+  width: auto;
+  min-width: 150px;
+}
+
+.wizard-buttons .button-ghost {
+  width: auto;
+}
+
+
+/* Ошибка */
+
+.wizard-error {
+  margin: 0 0 22px;
+  padding: 12px 14px;
+
+  border: 1px solid #f3c7c3;
+  border-radius: 12px;
+
+  background: #fff1f0;
+
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+/* Успешная отправка */
+
+.wizard-success {
+  padding: 38px 16px 20px;
+  text-align: center;
+}
+
+.success-icon {
+  display: grid;
+  place-items: center;
+
+  width: 64px;
+  height: 64px;
+
+  margin: 0 auto 20px;
+
+  border-radius: 20px;
+
+  background: var(--accent);
+  color: var(--dark);
+
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.wizard-success h3 {
+  margin-bottom: 10px;
+  font-size: 30px;
+}
+
+.wizard-success p {
+  max-width: 600px;
+  margin: 0 auto 8px;
+
+  color: var(--muted);
+}
+
+.wizard-success strong {
+  color: var(--text);
+}
+
+
+/* Планшет */
+
+@media (max-width: 900px) {
+
+  .choice-grid,
+  .category-grid,
+  .region-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-wizard {
+    padding: 28px;
+  }
+}
+
+
+/* Телефон */
+
+@media (max-width: 640px) {
+
+  .partner-wizard {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .wizard-progress-items {
+    gap: 4px;
+  }
+
+  .wizard-progress-item {
+    padding: 7px 4px;
+    font-size: 9px;
+  }
+
+  .wizard-step h3 {
+    font-size: 25px;
+  }
+
+  .choice-grid,
+  .category-grid,
+  .region-grid,
+  .choice-grid.small-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .region-grid {
+    max-height: 280px;
+  }
+
+  .wizard-buttons {
+    flex-direction: column-reverse;
+  }
+
+  .wizard-buttons .button,
+  .wizard-buttons .button-ghost {
+    width: 100%;
+  }
+
+  .work-group {
+    padding: 14px;
+  }
+
+  .work-group-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
