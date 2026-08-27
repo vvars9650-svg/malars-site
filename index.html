@@ -149,54 +149,782 @@
     </section>
 
     <section class="section section-soft" id="partners">
-      <div class="container split-grid reverse">
-        <div class="split-copy">
-          <div class="eyebrow">Подрядчикам и специалистам</div>
-          <h2>Войдите в рабочую сеть МАЛАРС</h2>
-          <p>Нам нужны исполнители под строительные, инженерные и специализированные задачи. Компании, бригады, ИП и профильные специалисты.</p>
-          <ul class="check-list">
-            <li>Указываете реальные компетенции и географию</li>
-            <li>Получаете релевантные запросы, а не массовую рассылку</li>
-            <li>Можно расширять карточку опытом и портфолио</li>
-            <li>Участие в базе не обязывает брать каждую задачу</li>
-          </ul>
+  <div class="container">
+    <div class="section-heading">
+      <div class="eyebrow">Подрядчикам и специалистам</div>
+      <h2>Войдите в рабочую сеть МАЛАРС</h2>
+      <p>
+        Заполните карточку один раз. Мы будем подбирать задачи по вашим
+        реальным компетенциям, географии, масштабу и типам объектов.
+      </p>
+    </div>
+
+    <form
+      class="form-panel partner-wizard"
+      id="partnerFormV2"
+      data-form-type="partner_v2"
+    >
+
+      <div class="wizard-progress">
+        <div class="wizard-progress-bar">
+          <span></span>
         </div>
-        <form class="form-panel" id="partnerForm" data-form-type="partner">
-          <h3>Добавиться в базу</h3>
-          <div class="form-two">
-            <label>Компания / команда
-              <input name="company" type="text" placeholder="Название">
-            </label>
-            <label>Контактное лицо
-              <input name="name" type="text" placeholder="Имя" required>
-            </label>
-          </div>
-          <div class="form-two">
-            <label>Телефон / Telegram
-              <input name="contact" type="text" placeholder="+7 ... или @username" required>
-            </label>
-            <label>Город
-              <input name="city" type="text" placeholder="Базовый город" required>
-            </label>
-          </div>
-          <label>Основные направления
-            <textarea name="specialization" rows="4" placeholder="Например: электромонтаж, СКС, вентиляция, отделка..." required></textarea>
-          </label>
-          <label>География работы
-            <input name="geography" type="text" placeholder="Город, область, несколько регионов, вся РФ">
-          </label>
-          <label>Опыт / комментарий
-            <textarea name="experience" rows="4" placeholder="Коротко об опыте, типах объектов, сильных сторонах"></textarea>
-          </label>
-          <label class="consent">
-            <input name="consent" type="checkbox" required>
-            <span>Согласен на обработку отправленных данных и связь по рабочим запросам.</span>
-          </label>
-          <button class="button form-submit" type="submit">Отправить данные</button>
-          <div class="form-status" aria-live="polite"></div>
-        </form>
+
+        <div class="wizard-progress-items">
+          <div class="wizard-progress-item active">1. О вас</div>
+          <div class="wizard-progress-item">2. Работы</div>
+          <div class="wizard-progress-item">3. Объекты</div>
+          <div class="wizard-progress-item">4. Возможности</div>
+          <div class="wizard-progress-item">5. Документы</div>
+        </div>
       </div>
-    </section>
+
+      <div class="wizard-error" hidden></div>
+
+
+      <!-- ШАГ 1 -->
+
+      <div class="wizard-step">
+
+        <h3>1. Кто вы</h3>
+
+        <div class="field-title">Тип участника</div>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="participantType"
+              value="Компания"
+            >
+            <span>Компания</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="participantType"
+              value="ИП"
+            >
+            <span>ИП</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="participantType"
+              value="Самозанятый"
+            >
+            <span>Самозанятый</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="participantType"
+              value="Бригада"
+            >
+            <span>Бригада</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="participantType"
+              value="Частный специалист"
+            >
+            <span>Частный специалист</span>
+          </label>
+
+        </div>
+
+
+        <div class="field-title">Организационная форма</div>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input type="radio" name="legalForm" value="ООО">
+            <span>ООО</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="legalForm" value="ИП">
+            <span>ИП</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="legalForm"
+              value="Самозанятый"
+            >
+            <span>Самозанятый</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="legalForm" value="Физлицо">
+            <span>Физлицо</span>
+          </label>
+
+        </div>
+
+
+        <div class="form-two">
+
+          <label>
+            Компания / команда
+            <input
+              id="companyName"
+              type="text"
+              placeholder="Название"
+            >
+          </label>
+
+          <label>
+            ИНН
+            <input
+              id="inn"
+              type="text"
+              inputmode="numeric"
+              placeholder="10 или 12 цифр"
+            >
+          </label>
+
+        </div>
+
+
+        <div class="form-two">
+
+          <label>
+            Контактное лицо
+            <input
+              id="contactName"
+              type="text"
+              required
+              placeholder="Имя"
+            >
+          </label>
+
+          <label>
+            Телефон
+            <input
+              id="phone"
+              type="tel"
+              required
+              placeholder="+7..."
+            >
+          </label>
+
+        </div>
+
+
+        <div class="form-two">
+
+          <label>
+            Telegram
+            <input
+              id="telegram"
+              type="text"
+              placeholder="@username"
+            >
+          </label>
+
+          <label>
+            Email
+            <input
+              id="email"
+              type="email"
+              placeholder="mail@example.ru"
+            >
+          </label>
+
+        </div>
+
+
+        <div class="wizard-buttons">
+          <button
+            type="button"
+            class="button wizard-next"
+          >
+            Далее
+          </button>
+        </div>
+
+      </div>
+
+
+      <!-- ШАГ 2 -->
+
+      <div class="wizard-step" hidden>
+
+        <h3>2. Какие работы выполняете</h3>
+
+        <p class="wizard-help">
+          Сначала выберите направления. Затем отметьте конкретные виды работ.
+        </p>
+
+        <div
+          class="choice-grid category-grid"
+          id="workCategories"
+        ></div>
+
+        <div
+          class="work-details"
+          id="workDetails"
+        ></div>
+
+        <div class="wizard-buttons">
+          <button
+            type="button"
+            class="button button-ghost wizard-back"
+          >
+            Назад
+          </button>
+
+          <button
+            type="button"
+            class="button wizard-next"
+          >
+            Далее
+          </button>
+        </div>
+
+      </div>
+
+
+      <!-- ШАГ 3 -->
+
+      <div class="wizard-step" hidden>
+
+        <h3>3. Объекты и география</h3>
+
+        <div class="field-title">
+          С какими объектами работаете
+        </div>
+
+        <div
+          class="choice-grid"
+          id="objectTypes"
+        ></div>
+
+
+        <div class="form-two geography-main">
+
+          <label>
+            Базовый регион
+
+            <select id="baseRegion" required></select>
+          </label>
+
+          <label>
+            Базовый город
+
+            <input
+              id="baseCity"
+              type="text"
+              required
+              placeholder="Краснодар"
+            >
+          </label>
+
+        </div>
+
+
+        <label class="choice-card nationwide-card">
+
+          <input
+            id="nationwide"
+            type="checkbox"
+          >
+
+          <span>
+            Работаем по всей России
+          </span>
+
+        </label>
+
+
+        <div id="extraRegionsWrap">
+
+          <div class="field-title">
+            Дополнительные регионы работы
+          </div>
+
+          <input
+            id="regionSearch"
+            class="region-search"
+            type="search"
+            placeholder="Найти регион..."
+          >
+
+          <div
+            class="choice-grid region-grid"
+            id="extraRegions"
+          ></div>
+
+        </div>
+
+
+        <div class="wizard-buttons">
+
+          <button
+            type="button"
+            class="button button-ghost wizard-back"
+          >
+            Назад
+          </button>
+
+          <button
+            type="button"
+            class="button wizard-next"
+          >
+            Далее
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <!-- ШАГ 4 -->
+
+      <div class="wizard-step" hidden>
+
+        <h3>4. Возможности</h3>
+
+
+        <div class="field-title">
+          Численность команды
+        </div>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input type="radio" name="teamSize" value="1 человек">
+            <span>1 человек</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="teamSize" value="2–5">
+            <span>2–5</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="teamSize" value="6–15">
+            <span>6–15</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="teamSize" value="16–30">
+            <span>16–30</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="teamSize" value="31–50">
+            <span>31–50</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="teamSize" value="51–100">
+            <span>51–100</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="teamSize" value="100+">
+            <span>100+</span>
+          </label>
+
+        </div>
+
+
+        <div class="field-title">
+          Работа с НДС
+        </div>
+
+        <div class="choice-grid small-grid">
+
+          <label class="choice-card">
+            <input type="radio" name="vat" value="Да">
+            <span>Да</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="vat" value="Нет">
+            <span>Нет</span>
+          </label>
+
+        </div>
+
+
+        <div class="field-title">
+          Форма оплаты
+        </div>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="paymentForms"
+              value="Безналичный расчёт"
+            >
+            <span>Безналичный расчёт</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="paymentForms"
+              value="Наличные"
+            >
+            <span>Наличные</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="paymentForms"
+              value="Оплата по этапам"
+            >
+            <span>Оплата по этапам</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="paymentForms"
+              value="Постоплата"
+            >
+            <span>Постоплата</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="paymentForms"
+              value="Аванс"
+            >
+            <span>Аванс</span>
+          </label>
+
+        </div>
+
+
+        <div class="field-title">
+          Готовность к командировкам
+        </div>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input type="radio" name="travel" value="Нет">
+            <span>Нет</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="travel"
+              value="По своему региону"
+            >
+            <span>По своему региону</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="travel"
+              value="Соседние регионы"
+            >
+            <span>Соседние регионы</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="radio"
+              name="travel"
+              value="По РФ"
+            >
+            <span>По РФ</span>
+          </label>
+
+        </div>
+
+
+        <div class="field-title">
+          Минимальный заказ
+        </div>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input type="radio" name="minOrder" value="до 100 тыс.">
+            <span>до 100 тыс.</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="minOrder" value="100–300 тыс.">
+            <span>100–300 тыс.</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="minOrder" value="300–500 тыс.">
+            <span>300–500 тыс.</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="minOrder" value="500 тыс.–1 млн">
+            <span>500 тыс.–1 млн</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="minOrder" value="1–3 млн">
+            <span>1–3 млн</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="minOrder" value="3–10 млн">
+            <span>3–10 млн</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="minOrder" value="10 млн+">
+            <span>10 млн+</span>
+          </label>
+
+        </div>
+
+
+        <div class="field-title">
+          Максимальный проект
+        </div>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input type="radio" name="maxProject" value="до 100 тыс.">
+            <span>до 100 тыс.</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="maxProject" value="100–300 тыс.">
+            <span>100–300 тыс.</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="maxProject" value="300–500 тыс.">
+            <span>300–500 тыс.</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="maxProject" value="500 тыс.–1 млн">
+            <span>500 тыс.–1 млн</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="maxProject" value="1–3 млн">
+            <span>1–3 млн</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="maxProject" value="3–10 млн">
+            <span>3–10 млн</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="maxProject" value="10 млн+">
+            <span>10 млн+</span>
+          </label>
+
+        </div>
+
+
+        <div class="wizard-buttons">
+
+          <button
+            type="button"
+            class="button button-ghost wizard-back"
+          >
+            Назад
+          </button>
+
+          <button
+            type="button"
+            class="button wizard-next"
+          >
+            Далее
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <!-- ШАГ 5 -->
+
+      <div class="wizard-step" hidden>
+
+        <h3>5. Документы и ресурсы</h3>
+
+        <div class="choice-grid">
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="documents"
+              value="DOC-SRO"
+            >
+            <span>Есть СРО</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="documents"
+              value="DOC-MCHS"
+            >
+            <span>Лицензия МЧС</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="documents"
+              value="DOC-ETL"
+            >
+            <span>Электролаборатория</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="documents"
+              value="DOC-CERT"
+            >
+            <span>Допуски и удостоверения</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="documents"
+              value="RES-TOOLS"
+            >
+            <span>Собственный инструмент</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="documents"
+              value="RES-EQUIP"
+            >
+            <span>Собственная техника / оборудование</span>
+          </label>
+
+          <label class="choice-card">
+            <input
+              type="checkbox"
+              name="documents"
+              value="DOC-PORT"
+            >
+            <span>Есть портфолио</span>
+          </label>
+
+        </div>
+
+
+        <label>
+          Ссылка на портфолио / сайт
+
+          <input
+            id="portfolioUrl"
+            type="url"
+            placeholder="https://..."
+          >
+        </label>
+
+
+        <label>
+          Комментарий
+
+          <textarea
+            id="partnerComment"
+            rows="4"
+            placeholder="Только если есть важная информация, которой нет в анкете"
+          ></textarea>
+        </label>
+
+
+        <label class="consent">
+
+          <input
+            type="checkbox"
+            required
+          >
+
+          <span>
+            Согласен на обработку данных и связь по рабочим запросам.
+          </span>
+
+        </label>
+
+
+        <div class="wizard-buttons">
+
+          <button
+            type="button"
+            class="button button-ghost wizard-back"
+          >
+            Назад
+          </button>
+
+          <button
+            type="submit"
+            class="button partner-v2-submit"
+          >
+            Отправить анкету
+          </button>
+
+        </div>
+
+        <div
+          class="form-status"
+          aria-live="polite"
+        ></div>
+
+      </div>
+
+
+      <!-- УСПЕХ -->
+
+      <div
+        class="wizard-success"
+        id="partnerSuccess"
+        hidden
+      >
+
+        <div class="success-icon">✓</div>
+
+        <h3>Анкета зарегистрирована</h3>
+
+        <p>
+          Ваш ID в базе:
+          <strong data-participant-id></strong>
+        </p>
+
+        <p>
+          Теперь мы сможем подбирать запросы по указанным
+          компетенциям и географии.
+        </p>
+
+      </div>
+
+    </form>
+  </div>
+</section>
 
     <section class="section final-cta">
       <div class="container final-box">
@@ -217,6 +945,6 @@
     </div>
   </footer>
 
-<script src="script.js?v=2"></script>
+<script src="script.js?v=3"></script>
 </body>
 </html>
