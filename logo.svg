@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">МАЛАРС</title>
+  <desc id="desc">Монограмма M и A в форме щита</desc>
+  <defs>
+    <linearGradient id="dark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#252c31"/>
+      <stop offset="1" stop-color="#0d1114"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efc45a"/>
+      <stop offset="1" stop-color="#a86f12"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M50 3 9 18v36c0 20 14 34 41 43V3Z" fill="url(#dark)"/>
+  <path d="M50 3 91 18v36c0 20-14 34-41 43V3Z" fill="url(#gold)"/>
+
+  <path d="M19 70V28l14 16 17-19v45h-9V48l-8 10-7-9v21Z" fill="#fff"/>
+  <path d="M53 70 67 28h10l14 42H81l-3-10H66l-3 10Zm16-18h7l-3.5-13Z" fill="#fff"/>
+
+  <path d="M50 3v94" stroke="rgba(255,255,255,.34)" stroke-width="1"/>
+</svg>
