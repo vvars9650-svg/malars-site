@@ -1,0 +1,69 @@
+name: MALARS production smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/smoke-test.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Pages
+        run: sleep 45
+
+      - name: Check live site assets
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-delay 5 https://malars.ru/ -o /tmp/index.html
+          curl -fsSL --retry 5 --retry-delay 5 https://malars.ru/script.js?v=20260828-3 -o /tmp/script.js
+          curl -fsSL --retry 5 --retry-delay 5 https://malars.ru/site-latest.js?v=20260828-3 -o /tmp/latest.js
+          grep -q 'site-latest.js' /tmp/script.js
+          grep -q 'ПАО' /tmp/latest.js
+          grep -q 'АО' /tmp/latest.js
+          grep -q 'Контакты' /tmp/latest.js
+          grep -q '+7 989 808-01-04' /tmp/latest.js
+          grep -q '+7 989 824-03-21' /tmp/latest.js
+          grep -q 'baseGeographyFields' /tmp/latest.js
+          grep -q 'Работаем по всей России' /tmp/latest.js
+          echo 'SITE_ASSETS_OK=1'
+
+      - name: Check Apps Script and submit test forms
+        env:
+          API_URL: https://script.google.com/macros/s/AKfycbz3ycpkm_msGzEVbpQkdaedUGwaAjzkA4_Xbuj8X4MCaKyuqXFtPY1Yuq4M2zLF9yIb/exec
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y%m%d-%H%M%S)"
+          curl -fsSL -L --retry 3 "$API_URL" -o /tmp/backend.json || true
+          echo 'BACKEND_GET:'
+          cat /tmp/backend.json || true
+          echo
+
+          cat > /tmp/client.json <<JSON
+          {"formType":"client","name":"ТЕСТ ChatGPT заказчик $stamp","contact":"+7 (900) 000-00-01","email":"malars.autotest+$stamp@example.com","region":"Краснодарский край","cityName":"Краснодар","city":"Краснодарский край / Краснодар","task":"Автотест формы заказчика. Эту запись можно удалить.","deadline":"Тест","page":"https://malars.ru/#clients","files":[]}
+          JSON
+
+          cat > /tmp/partner.json <<JSON
+          {"formType":"partner_v2","page":"https://malars.ru/#partners","source":"malars.ru","participant":{"participantType":"Компания","legalForm":"ООО","companyName":"ТЕСТ ChatGPT подрядчик $stamp","inn":"1234567890","contactName":"Автотест","phone":"+7 (900) 000-00-02","telegram":"","email":"malars.partner.autotest+$stamp@example.com","baseRegionCode":"RU-ALL","baseRegionName":"Вся Россия","baseCity":"Вся Россия","teamSize":"2–5","vat":"Да","paymentForms":["Безналичный расчёт","Условия по договорённости"],"travel":"По РФ","nationwide":true,"minOrder":"100–300 тыс.","maxProject":"1–3 млн","portfolioUrl":"","comment":"Автотест. Эту запись можно удалить."},"competencies":["CON-01"],"objectTypes":["OBJ-15"],"regions":[{"code":"RU-ALL","name":"Вся Россия"}],"documents":["DOC-FSTEK"]}
+          JSON
+
+          curl -fsSL -L --retry 3 -H 'Content-Type: text/plain;charset=utf-8' --data-binary @/tmp/client.json "$API_URL" -o /tmp/client-response.json
+          curl -fsSL -L --retry 3 -H 'Content-Type: text/plain;charset=utf-8' --data-binary @/tmp/partner.json "$API_URL" -o /tmp/partner-response.json
+
+          echo 'CLIENT_RESPONSE:'
+          cat /tmp/client-response.json
+          echo
+          echo 'PARTNER_RESPONSE:'
+          cat /tmp/partner-response.json
+          echo
+
+          python3 - <<'PY'
+          import json
+          for path in ['/tmp/client-response.json','/tmp/partner-response.json']:
+              with open(path, encoding='utf-8') as f:
+                  data=json.load(f)
+              if not data.get('ok'):
+                  raise SystemExit(f"Smoke test failed: {path}: {data}")
+          print('FORM_POSTS_OK=1')
+          PY
