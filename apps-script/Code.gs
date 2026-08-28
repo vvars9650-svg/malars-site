@@ -14,6 +14,8 @@ const MALARS_CONFIG = {
   }
 };
 
+const MALARS_VERSION = '2026-08-28.3';
+
 const MALARS_DOCUMENTS = {
   'DOC-SRO': 'СРО',
   'DOC-MCHS': 'Лицензия МЧС',
@@ -32,6 +34,7 @@ function doGet() {
   return json_({
     ok: true,
     service: 'МАЛАРС-ГРУПП',
+    version: MALARS_VERSION,
     message: 'Web App работает'
   });
 }
@@ -55,11 +58,12 @@ function doPost(e) {
       throw new Error('Неизвестный тип формы');
     }
 
-    return json_(Object.assign({ ok: true }, result || {}));
+    return json_(Object.assign({ ok: true, version: MALARS_VERSION }, result || {}));
   } catch (error) {
     console.error('MALARS doPost:', error && error.stack ? error.stack : error);
     return json_({
       ok: false,
+      version: MALARS_VERSION,
       error: error && error.message ? error.message : 'Ошибка обработки запроса'
     });
   }
@@ -83,7 +87,7 @@ function saveClient_(ss, data) {
     sheet.appendRow([
       new Date(),
       clean_(data.name),
-      clean_(data.contact),
+      sheetText_(data.contact),
       clean_(data.email),
       clean_(data.city || [data.region, data.cityName].filter(Boolean).join(' / ')),
       clean_(data.task),
@@ -163,14 +167,18 @@ function savePartnerV2_(ss, data) {
   const objectTypes = Array.isArray(data.objectTypes) ? uniqueStrings_(data.objectTypes) : [];
   const regions = Array.isArray(data.regions) ? data.regions : [];
   const documents = Array.isArray(data.documents) ? uniqueStrings_(data.documents) : [];
+  const nationwide = Boolean(participant.nationwide);
 
   requireText_(participant.participantType, 'Тип участника');
   requireText_(participant.legalForm, 'Организационная форма');
   requireText_(participant.contactName, 'Контактное лицо');
   requireRussianPhone_(participant.phone);
   requireEmail_(participant.email);
-  requireText_(participant.baseRegionName, 'Базовый регион');
-  requireText_(participant.baseCity, 'Базовый город');
+
+  if (!nationwide) {
+    requireText_(participant.baseRegionName, 'Базовый регион');
+    requireText_(participant.baseCity, 'Базовый город');
+  }
 
   if (!competencies.length) throw new Error('Не выбраны виды работ');
   if (!objectTypes.length) throw new Error('Не выбраны типы объектов');
@@ -199,6 +207,8 @@ function savePartnerV2_(ss, data) {
     }).join('; ');
 
     const portfolio = clean_(participant.portfolioUrl) || (documents.indexOf('DOC-PORT') !== -1 ? 'Да' : '');
+    const baseRegionName = nationwide ? 'Вся Россия' : clean_(participant.baseRegionName);
+    const baseCity = nationwide ? 'Вся Россия' : clean_(participant.baseCity);
 
     participantSheet.appendRow([
       participantId,
@@ -209,16 +219,16 @@ function savePartnerV2_(ss, data) {
       clean_(participant.companyName),
       digitsOnly_(participant.inn),
       clean_(participant.contactName),
-      clean_(participant.phone),
+      sheetText_(participant.phone),
       clean_(participant.telegram),
       clean_(participant.email),
-      clean_(participant.baseRegionName),
-      clean_(participant.baseCity),
+      baseRegionName,
+      baseCity,
       clean_(participant.teamSize),
       clean_(participant.vat),
       paymentForms,
       clean_(participant.travel),
-      participant.nationwide ? 'Да' : 'Нет',
+      nationwide ? 'Да' : 'Нет',
       clean_(participant.minOrder),
       clean_(participant.maxProject),
       sro,
@@ -244,6 +254,11 @@ function savePartnerV2_(ss, data) {
 
     const regionRows = [];
     const seenRegionCodes = {};
+    if (nationwide) {
+      regionRows.push([participantId, 'RU-ALL', 'Вся Россия']);
+      seenRegionCodes['RU-ALL'] = true;
+    }
+
     regions.forEach(function(region) {
       const code = clean_(region && region.code);
       const name = clean_(region && region.name);
@@ -275,7 +290,7 @@ function saveLegacyPartner_(ss, data) {
     new Date(),
     clean_(data.company || data.companyName || data.name),
     clean_(data.contactName || data.person),
-    clean_(data.contact || data.phone),
+    sheetText_(data.contact || data.phone),
     clean_(data.city),
     clean_(data.services || data.directions || data.works),
     clean_(data.geography || data.region),
@@ -385,8 +400,8 @@ function validateInnForLegalForm_(inn, legalForm, participantType) {
   const legal = clean_(legalForm);
   const type = clean_(participantType);
 
-  if (legal === 'ООО') {
-    if (!/^\d{10}$/.test(digits)) throw new Error('ИНН ООО должен содержать 10 цифр');
+  if (['ПАО', 'АО', 'ООО'].indexOf(legal) !== -1) {
+    if (!/^\d{10}$/.test(digits)) throw new Error('ИНН организации должен содержать 10 цифр');
     return;
   }
 
@@ -396,8 +411,14 @@ function validateInnForLegalForm_(inn, legalForm, participantType) {
   }
 
   if (digits && !/^\d{12}$/.test(digits)) {
-    throw new Error('ИНН должен содержать 12 цифр');
+    throw new Error('ИНН физического лица должен содержать 12 цифр');
   }
+}
+
+function sheetText_(value) {
+  const text = clean_(value);
+  if (!text) return '';
+  return "'" + text;
 }
 
 function uniqueStrings_(values) {
@@ -436,6 +457,33 @@ function safeFileName_(value) {
     .replace(/\s+/g, ' ')
     .trim();
   return (text || 'file').slice(0, 180);
+}
+
+function ensurePhoneColumnsText_() {
+  const ss = SpreadsheetApp.openById(MALARS_CONFIG.SPREADSHEET_ID);
+  [
+    [MALARS_CONFIG.SHEETS.clients, 'C:C'],
+    [MALARS_CONFIG.SHEETS.legacyPartners, 'D:D'],
+    [MALARS_CONFIG.SHEETS.participants, 'I:I']
+  ].forEach(function(item) {
+    const sheet = getSheet_(ss, item[0]);
+    sheet.getRange(item[1]).setNumberFormat('@');
+  });
+}
+
+function testSetup() {
+  const ss = SpreadsheetApp.openById(MALARS_CONFIG.SPREADSHEET_ID);
+  Object.keys(MALARS_CONFIG.SHEETS).forEach(function(key) {
+    getSheet_(ss, MALARS_CONFIG.SHEETS[key]);
+  });
+  DriveApp.getFolderById(MALARS_CONFIG.CLIENT_FILES_FOLDER_ID).getName();
+  ensurePhoneColumnsText_();
+
+  return {
+    ok: true,
+    version: MALARS_VERSION,
+    message: 'Настройка МАЛАРС-ГРУПП проверена'
+  };
 }
 
 function json_(payload) {
