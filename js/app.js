@@ -1,19 +1,47 @@
 /*
  * MALARS frontend application entry point
- * MVP migration layer.
+ * Clean MVP migration. Not connected to production until the migration switch.
  */
-
 (() => {
-  window.MalarsApp = {
-    version: "20260904-2",
-    initialized: false
-  };
+  const VERSION = "20260904-3";
 
-  function init() {
-    window.MalarsForms?.init();
-    window.MalarsApp.initialized = true;
-    document.documentElement.dataset.malarsApp = "ready";
+  function diagnostics() {
+    const data = window.MalarsData;
+    const forms = window.MalarsForms;
+    const checks = {
+      dataLayer: !!data,
+      formsLayer: !!forms,
+      scriptUrl: !!data?.config?.scriptUrl,
+      phoneValidation: !!forms?.validatePhone || !!forms?.PHONE_PATTERN,
+      orgRules: Object.keys(forms?.ORG_RULES || {}).length === 7,
+      objectTypes: Array.isArray(data?.objectTypes) && data.objectTypes.length >= 15,
+      contacts: Array.isArray(data?.contacts) && data.contacts.length === 2
+    };
+    return {
+      version: VERSION,
+      ok: Object.values(checks).every(Boolean),
+      checks
+    };
   }
 
-  window.addEventListener("DOMContentLoaded", init);
+  function init() {
+    const result = diagnostics();
+    window.MalarsApp.initialized = true;
+    window.MalarsApp.lastDiagnostics = result;
+    document.documentElement.dataset.malarsApp = result.ok ? "ready" : "migration-incomplete";
+    if (!result.ok) console.warn("MALARS migration diagnostics", result.checks);
+  }
+
+  window.MalarsApp = {
+    version: VERSION,
+    initialized: false,
+    lastDiagnostics: null,
+    diagnostics
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 })();
