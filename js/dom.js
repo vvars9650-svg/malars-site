@@ -38,6 +38,40 @@
     });
   }
 
+  function bindRussiaMode() {
+    const checkbox = document.querySelector('[name="allRussia"], #allRussia');
+    const regionFields = document.querySelectorAll('[data-region-field], #regionSelect, #citySelect');
+
+    if (!checkbox) return;
+
+    checkbox.addEventListener('change', () => {
+      regionFields.forEach((field) => {
+        field.disabled = checkbox.checked;
+        if (checkbox.checked && field.tagName === 'SELECT') {
+          field.value = '';
+        }
+      });
+    });
+  }
+
+  function bindGeography() {
+    const region = document.querySelector('#regionSelect');
+    const city = document.querySelector('#citySelect');
+
+    if (!region || !city) return;
+
+    region.addEventListener('change', () => {
+      const cities = window.MalarsData?.cities?.[region.value] || [];
+      city.innerHTML = '<option value="">Выберите город</option>';
+      cities.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item;
+        option.textContent = item;
+        city.appendChild(option);
+      });
+    });
+  }
+
   function initWizard() {
     const steps = [...document.querySelectorAll('.wizard-step')];
     const nextButtons = document.querySelectorAll('.wizard-next');
@@ -67,11 +101,13 @@
     if (state.initialized) return;
     state.initialized = true;
     bindValidation();
+    bindRussiaMode();
+    bindGeography();
     initWizard();
   }
 
   window.MalarsDom = {
-    version: "20260904-3",
+    version: "20260904-4",
     state,
     init
   };
