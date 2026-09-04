@@ -10,6 +10,22 @@
 <div class="container" style="padding:40px">
 <h1>МАЛАРС MVP Preview</h1>
 <p>Тестовая страница миграции. Production index.html не изменён.</p>
+
+<form id="clientForm" data-form-type="client">
+<label>Имя <input name="name" required></label>
+<label>Телефон <input name="phone" required></label>
+<label>Email <input name="email" type="email"></label>
+<label>Задача <textarea name="task"></textarea></label>
+</form>
+
+<form id="partnerFormV2" data-form-type="partner_v2">
+<label>Компания <input id="companyName"></label>
+<label>ИНН <input id="inn"></label>
+<label>Контактное лицо <input id="contactName"></label>
+<label>Телефон <input id="phone"></label>
+<label>Email <input id="email" type="email"></label>
+</form>
+
 <div id="mvp-test-status">Загрузка новой архитектуры...</div>
 </div>
 <script src="script-mvp.js?v=20260904-mvp"></script>
