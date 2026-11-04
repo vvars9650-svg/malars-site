@@ -19,7 +19,7 @@ jobs:
       OIDC_AUDIENCE: https://github.com/vvars9650-svg
       OIDC_SUBJECT: repo:vvars9650-svg@315589829/malars-site@1348651215:environment:malars-test
     steps:
-      - name: Exchange OIDC token and list TEST containers (read only)
+      - name: Exchange OIDC token and diagnose TEST access (read only)
         shell: node {0}
         run: |
           const secrets = [];
@@ -28,6 +28,17 @@ jobs:
             secrets.push(value);
             console.log(`::add-mask::${value}`);
             return value;
+          }
+          function clean(value) {
+            if (typeof value !== 'string' && typeof value !== 'number') return undefined;
+            let text = String(value);
+            for (const secret of secrets) text = text.split(secret).join('[REDACTED]');
+            return text
+              .replace(/Bearer\s+\S+/gi, '[REDACTED]')
+              .replace(/[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_.-]{10,}/g, '[REDACTED]')
+              .replace(/[A-Za-z0-9_+=\/-]{64,}/g, '[REDACTED]')
+              .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+              .slice(0, 1000);
           }
           async function request(stage, url, options = {}) {
             const response = await fetch(url, {
@@ -39,8 +50,37 @@ jobs:
             }
             return response.json();
           }
+          async function probe(stage, url, iamToken) {
+            try {
+              const response = await fetch(url, {
+                method: 'GET', redirect: 'error', signal: AbortSignal.timeout(30000),
+                headers: { Authorization: `Bearer ${iamToken}` },
+              });
+              const diagnostic = { status: response.status };
+              if (!response.ok) {
+                // Only allowlisted error fields; never print raw response bodies.
+                const body = await response.json().catch(() => ({}));
+                diagnostic.code = clean(body?.code);
+                diagnostic.message = clean(body?.message);
+                diagnostic['request-id'] = clean(
+                  response.headers.get('x-request-id') || response.headers.get('request-id') ||
+                  body?.requestId || body?.request_id);
+                diagnostic['trace-id'] = clean(
+                  response.headers.get('x-server-trace-id') || response.headers.get('x-trace-id') ||
+                  response.headers.get('trace-id') || body?.traceId || body?.trace_id);
+              }
+              console.log(`${stage}: ${JSON.stringify(diagnostic)}`);
+              return response.ok;
+            } catch (error) {
+              console.log(`${stage}: ${JSON.stringify({
+                status: null, code: clean(error.name), message: clean(error.message),
+              })}`);
+              return false;
+            }
+          }
           async function main() {
             const env = process.env;
+            mask(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN);
             const url = new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);
             url.searchParams.set('audience', env.OIDC_AUDIENCE);
             const oidcResponse = await request('GitHub OIDC', url, {
@@ -75,14 +115,16 @@ jobs:
             const listUrl = new URL('https://serverless-containers.api.cloud.yandex.net/containers/v1/containers');
             listUrl.searchParams.set('folderId', env.YC_FOLDER_ID);
             listUrl.searchParams.set('pageSize', '1');
-            await request('Read TEST containers', listUrl, {
-              headers: { Authorization: `Bearer ${iamToken}` },
-            });
-            console.log(`PASS: authenticated read-only Container.List in TEST folder ${env.YC_FOLDER_ID} (HTTP 200)`);
+            // Each probe completes independently, including on HTTP or network failure.
+            const folderOk = await probe('Folder.Get',
+              `https://resource-manager.api.cloud.yandex.net/resource-manager/v1/folders/${env.YC_FOLDER_ID}`,
+              iamToken);
+            const containersOk = await probe('Container.List', listUrl, iamToken);
+            console.log(folderOk && containersOk ? 'PASS: both read-only checks succeeded' :
+              'FAIL: one or both read-only checks failed');
+            if (!folderOk || !containersOk) process.exitCode = 1;
           }
           main().catch(error => {
-            let message = String(error.message);
-            for (const secret of secrets) message = message.split(secret).join('[REDACTED]');
-            console.error(`FAIL: ${message}`);
+            console.error(`FAIL: ${clean(error.message)}`);
             process.exitCode = 1;
           });
