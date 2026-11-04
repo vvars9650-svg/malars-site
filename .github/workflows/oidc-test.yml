@@ -15,7 +15,7 @@ jobs:
     environment: malars-test
     env:
       YC_SERVICE_ACCOUNT_ID: ajes8qkmdkn775e4i7d1
-      YC_FOLDER_ID: b1g1kul9pg8q9sqq20ou
+      YC_FOLDER_ID: b1glkul9pg8q9sqq20ou
       OIDC_AUDIENCE: https://github.com/vvars9650-svg
       OIDC_SUBJECT: repo:vvars9650-svg@315589829/malars-site@1348651215:environment:malars-test
     steps:
