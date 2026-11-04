@@ -1,0 +1,88 @@
+name: Yandex Cloud OIDC test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  oidc-test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: malars-test
+    env:
+      YC_SERVICE_ACCOUNT_ID: ajes8qkmdkn775e4i7d1
+      YC_FOLDER_ID: b1g1kul9pg8q9sqq20ou
+      OIDC_AUDIENCE: https://github.com/vvars9650-svg
+      OIDC_SUBJECT: repo:vvars9650-svg@315589829/malars-site@1348651215:environment:malars-test
+    steps:
+      - name: Exchange OIDC token and list TEST containers (read only)
+        shell: node {0}
+        run: |
+          const secrets = [];
+          function mask(value) {
+            if (typeof value !== 'string' || !value) throw new Error('Missing token');
+            secrets.push(value);
+            console.log(`::add-mask::${value}`);
+            return value;
+          }
+          async function request(stage, url, options = {}) {
+            const response = await fetch(url, {
+              ...options, redirect: 'error', signal: AbortSignal.timeout(30000),
+            });
+            if (!response.ok) {
+              // Never log raw error bodies: they may contain credentials.
+              throw new Error(`${stage}: HTTP ${response.status}`);
+            }
+            return response.json();
+          }
+          async function main() {
+            const env = process.env;
+            const url = new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);
+            url.searchParams.set('audience', env.OIDC_AUDIENCE);
+            const oidcResponse = await request('GitHub OIDC', url, {
+              headers: { Authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+            });
+            const jwt = mask(oidcResponse.value);
+            // Diagnostic claim checks; Yandex Cloud verifies the JWT signature.
+            const claims = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url'));
+            for (const [key, expected] of Object.entries({
+              iss: 'https://token.actions.githubusercontent.com',
+              aud: env.OIDC_AUDIENCE, sub: env.OIDC_SUBJECT,
+              repository_id: '1348651215', ref: 'refs/heads/main',
+            })) {
+              if (claims[key] !== expected) {
+                throw new Error(`OIDC claim mismatch: ${key}; actual=${JSON.stringify(claims[key])}`);
+              }
+            }
+            console.log('PASS: GitHub OIDC claims match TEST federation subject and audience');
+            const exchange = await request('Yandex Cloud token exchange',
+              'https://auth.yandex.cloud/oauth/token', {
+                method: 'POST',
+                body: new URLSearchParams({
+                  grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+                  requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+                  audience: env.YC_SERVICE_ACCOUNT_ID,
+                  subject_token: jwt,
+                  subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+                }),
+              });
+            const iamToken = mask(exchange.access_token);
+            console.log('PASS: temporary Yandex Cloud IAM token obtained');
+            const listUrl = new URL('https://serverless-containers.api.cloud.yandex.net/containers/v1/containers');
+            listUrl.searchParams.set('folderId', env.YC_FOLDER_ID);
+            listUrl.searchParams.set('pageSize', '1');
+            await request('Read TEST containers', listUrl, {
+              headers: { Authorization: `Bearer ${iamToken}` },
+            });
+            console.log(`PASS: authenticated read-only Container.List in TEST folder ${env.YC_FOLDER_ID} (HTTP 200)`);
+          }
+          main().catch(error => {
+            let message = String(error.message);
+            for (const secret of secrets) message = message.split(secret).join('[REDACTED]');
+            console.error(`FAIL: ${message}`);
+            process.exitCode = 1;
+          });
