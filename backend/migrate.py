@@ -8,6 +8,22 @@ from datetime import datetime, timezone
 import ydb
 
 
+def migration_statements(source: str) -> list[str]:
+    """Return only executable SQL chunks; ignore the preamble before the first marker."""
+    marker = "-- migrate:statement"
+    chunks = source.split(marker)
+    if len(chunks) < 2:
+        raise ValueError("migration_missing_statement_marker")
+    statements = [
+        part.strip() for part in chunks[1:]
+        if any(line.strip() and not line.lstrip().startswith("--")
+               for line in part.splitlines())
+    ]
+    if not statements:
+        raise ValueError("migration_has_no_sql_statements")
+    return statements
+
+
 def apply(pool, migration_dir: str) -> tuple[int, int]:
     pool.execute_with_retries("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -22,7 +38,7 @@ def apply(pool, migration_dir: str) -> tuple[int, int]:
         if version in applied:
             continue
         source = open(path, encoding="utf-8").read()
-        statements = [part.strip() for part in source.split("-- migrate:statement") if part.strip()]
+        statements = migration_statements(source)
         for statement in statements:
             pool.execute_with_retries(statement)
         pool.execute_with_retries("""
