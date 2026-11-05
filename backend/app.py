@@ -85,42 +85,66 @@ def save_customer_request(pool, request_id: str, data: dict[str, str]) -> tuple[
     person_id = str(uuid.uuid5(uuid.UUID(request_id), "person"))
     organization_id = str(uuid.uuid5(uuid.UUID(request_id), "organization")) if data["organization"] else ""
     created_at = datetime.now(timezone.utc).isoformat()
-    params = {
-        "$person_id": person_id, "$person_name": data["name"], "$contact": data["contact"],
-        "$organization_id": organization_id, "$organization_name": data["organization"],
-        "$request_id": request_id, "$region": data["region"], "$city": data["city"],
-        "$description": data["description"], "$desired_deadline": data["desired_deadline"],
-        "$created_at": created_at, "$consent_version": data["consent_version"],
-    }
-    pool.execute_with_retries("""
-        DECLARE $person_id AS Utf8;
-        DECLARE $person_name AS Utf8;
-        DECLARE $contact AS Utf8;
-        DECLARE $organization_id AS Utf8;
-        DECLARE $organization_name AS Utf8;
-        DECLARE $request_id AS Utf8;
-        DECLARE $region AS Utf8;
-        DECLARE $city AS Utf8;
-        DECLARE $description AS Utf8;
-        DECLARE $desired_deadline AS Utf8;
-        DECLARE $created_at AS Utf8;
-        DECLARE $consent_version AS Utf8;
-        UPSERT INTO persons (person_id, display_name, primary_contact, created_at)
-            VALUES ($person_id, $person_name, $contact, $created_at);
-        UPSERT INTO organizations (organization_id, name, created_at)
-            SELECT $organization_id, $organization_name, $created_at WHERE $organization_id != "";
-        UPSERT INTO customer_requests
-            (request_id, person_id, organization_id, region, city, description,
-             desired_deadline, status, created_at)
-            VALUES ($request_id, $person_id, $organization_id, $region, $city,
-                    $description, $desired_deadline, "new", $created_at);
-        UPSERT INTO consent_events
-            (event_id, person_id, request_id, consent_type, consent_version,
-             policy_version, form_version, consented, source, created_at)
-            VALUES ($request_id, $person_id, $request_id, "customer_pd",
-                    $consent_version, "PPD-MALARS-1.0", "FORM-LEGAL-1.0",
-                    true, "customer_form", $created_at);
-    """, params)
+    def write_transaction(session):
+        tx = session.transaction().begin()
+        statements = []
+        statements.append(("""
+            DECLARE $person_id AS Utf8;
+            DECLARE $person_name AS Utf8;
+            DECLARE $contact AS Utf8;
+            DECLARE $created_at AS Utf8;
+            UPSERT INTO persons (person_id, display_name, primary_contact, created_at)
+                VALUES ($person_id, $person_name, $contact, $created_at);
+        """, {"$person_id": person_id, "$person_name": data["name"],
+              "$contact": data["contact"], "$created_at": created_at}))
+        if organization_id:
+            statements.append(("""
+                DECLARE $organization_id AS Utf8;
+                DECLARE $organization_name AS Utf8;
+                DECLARE $created_at AS Utf8;
+                UPSERT INTO organizations (organization_id, name, created_at)
+                    VALUES ($organization_id, $organization_name, $created_at);
+            """, {"$organization_id": organization_id,
+                  "$organization_name": data["organization"], "$created_at": created_at}))
+        statements.extend([
+            ("""
+                DECLARE $request_id AS Utf8;
+                DECLARE $person_id AS Utf8;
+                DECLARE $organization_id AS Utf8;
+                DECLARE $region AS Utf8;
+                DECLARE $city AS Utf8;
+                DECLARE $description AS Utf8;
+                DECLARE $desired_deadline AS Utf8;
+                DECLARE $created_at AS Utf8;
+                UPSERT INTO customer_requests
+                    (request_id, person_id, organization_id, region, city, description,
+                     desired_deadline, status, created_at)
+                    VALUES ($request_id, $person_id, $organization_id, $region, $city,
+                            $description, $desired_deadline, "new", $created_at);
+            """, {"$request_id": request_id, "$person_id": person_id,
+                  "$organization_id": organization_id, "$region": data["region"],
+                  "$city": data["city"], "$description": data["description"],
+                  "$desired_deadline": data["desired_deadline"], "$created_at": created_at}),
+            ("""
+                DECLARE $request_id AS Utf8;
+                DECLARE $person_id AS Utf8;
+                DECLARE $consent_version AS Utf8;
+                DECLARE $created_at AS Utf8;
+                UPSERT INTO consent_events
+                    (event_id, person_id, request_id, consent_type, consent_version,
+                     policy_version, form_version, consented, source, created_at)
+                    VALUES ($request_id, $person_id, $request_id, "customer_pd",
+                            $consent_version, "PPD-MALARS-1.0", "FORM-LEGAL-1.0",
+                            true, "customer_form", $created_at);
+            """, {"$request_id": request_id, "$person_id": person_id,
+                  "$consent_version": data["consent_version"], "$created_at": created_at}),
+        ])
+        for statement, params in statements:
+            with tx.execute(statement, params):
+                pass
+        tx.commit()
+
+    pool.retry_operation_sync(write_transaction)
     record = read_customer_request(pool, request_id)
     if record is None:
         raise RuntimeError("write_readback_failed")
