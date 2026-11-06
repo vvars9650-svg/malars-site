@@ -38,6 +38,16 @@ class CustomerRequestValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(RequestError, "invalid_description"):
             validate_customer_request(self.payload, "CONSENT-CUSTOMER-PD-1.0")
 
+    def test_accepts_telegram_contact_and_rejects_unstructured_contact(self):
+        self.payload["contact"] = "@synthetic_test"
+        self.assertEqual(
+            validate_customer_request(self.payload, "CONSENT-CUSTOMER-PD-1.0")["contact"],
+            "@synthetic_test",
+        )
+        self.payload["contact"] = "contact me maybe"
+        with self.assertRaisesRegex(RequestError, "invalid_contact"):
+            validate_customer_request(self.payload, "CONSENT-CUSTOMER-PD-1.0")
+
 
 if __name__ == "__main__":
     unittest.main()

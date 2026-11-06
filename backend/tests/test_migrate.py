@@ -32,6 +32,17 @@ class MigrationStatementsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "migration_has_no_sql_statements"):
             migration_statements("-- migrate:statement\n-- nothing to execute\n")
 
+    def test_all_versioned_migrations_have_executable_statements(self):
+        migration_dir = Path(__file__).resolve().parents[1] / "migrations"
+        migrations = sorted(migration_dir.glob("*.sql"))
+        self.assertEqual([path.name for path in migrations], [
+            "0001_customer_intake.sql", "0002_participant_intake.sql",
+        ])
+        for path in migrations:
+            statements = migration_statements(path.read_text(encoding="utf-8"))
+            self.assertTrue(statements, path.name)
+            self.assertTrue(all(statement.endswith(";") for statement in statements), path.name)
+
 
 if __name__ == "__main__":
     unittest.main()
