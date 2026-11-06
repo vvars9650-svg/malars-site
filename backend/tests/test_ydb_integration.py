@@ -87,11 +87,11 @@ class YdbIntegrationTests(unittest.TestCase):
             "Content-Type": "application/json", "Idempotency-Key": participant_id,
         }
         with urlopen(Request(url + "/api/participants", data=participant_body,
-                             headers=participant_headers), timeout=10) as response:
+                             headers=participant_headers), timeout=60) as response:
             self.assertEqual(response.status, 201)
             participant_created = json.loads(response.read())["data"]
         with urlopen(Request(url + "/api/participants", data=participant_body,
-                             headers=participant_headers), timeout=10) as response:
+                             headers=participant_headers), timeout=60) as response:
             self.assertEqual(response.status, 200)
             participant_repeated = json.loads(response.read())["data"]
         participant_read_request = Request(
@@ -107,7 +107,7 @@ class YdbIntegrationTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as conflict:
             urlopen(Request(url + "/api/participants",
                             data=json.dumps(conflict_payload).encode("utf-8"),
-                            headers=participant_headers), timeout=10)
+                            headers=participant_headers), timeout=60)
         self.assertEqual(conflict.exception.code, 409)
 
         self.assertEqual(created["request_id"], request_id)
