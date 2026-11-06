@@ -1,0 +1,91 @@
+name: MALARS TEST YDB integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  ydb-test:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/participant-intake-ydb'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: malars-test
+    env:
+      YC_SERVICE_ACCOUNT_ID: ajes8qkmdkn775e4i7d1
+      YC_FOLDER_ID: b1glkul9pg8q9sqq20ou
+      OIDC_AUDIENCE: https://github.com/vvars9650-svg
+      OIDC_SUBJECT: repo:vvars9650-svg@315589829/malars-site@1348651215:environment:malars-test
+      YDB_ENDPOINT: grpcs://ydb.serverless.yandexcloud.net:2135
+      YDB_DATABASE: /ru-central1/b1gh45ejbkk3jcuutd48/etnfksq3umfh18ghde7m
+      YDB_AUTH_MODE: env
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Obtain temporary TEST YDB credentials
+        shell: node {0}
+        run: |
+          const fs = require('node:fs');
+          const env = process.env;
+          const mask = value => {
+            if (!value) throw new Error('Missing OIDC value');
+            process.stdout.write(`::add-mask::${value}\n`);
+            return value;
+          };
+          const request = async (url, options = {}) => {
+            const response = await fetch(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(30000) });
+            if (!response.ok) throw new Error(`Credential exchange failed with HTTP ${response.status}`);
+            return response.json();
+          };
+          async function main() {
+            mask(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN);
+            const oidcUrl = new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);
+            oidcUrl.searchParams.set('audience', env.OIDC_AUDIENCE);
+            const oidc = await request(oidcUrl, {
+              headers: { Authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+            });
+            const jwt = mask(oidc.value);
+            const claims = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url'));
+            for (const [key, expected] of Object.entries({
+              iss: 'https://token.actions.githubusercontent.com',
+              aud: env.OIDC_AUDIENCE,
+              sub: env.OIDC_SUBJECT,
+              repository_id: '1348651215',
+            })) {
+              if (claims[key] !== expected) throw new Error(`OIDC claim mismatch: ${key}`);
+            }
+            if (!new Set(['refs/heads/main', 'refs/heads/codex/participant-intake-ydb']).has(claims.ref)) {
+              throw new Error('OIDC claim mismatch: ref');
+            }
+            const exchange = await request('https://auth.yandex.cloud/oauth/token', {
+              method: 'POST',
+              body: new URLSearchParams({
+                grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+                requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+                audience: env.YC_SERVICE_ACCOUNT_ID,
+                subject_token: jwt,
+                subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+              }),
+            });
+            const iamToken = mask(exchange.access_token);
+            fs.appendFileSync(env.GITHUB_ENV, `YDB_ACCESS_TOKEN_CREDENTIALS=${iamToken}\n`);
+            console.log('Temporary TEST YDB identity ready.');
+          }
+          main().catch(error => {
+            console.error(error.message.replace(/Bearer\s+\S+/gi, '[REDACTED]'));
+            process.exitCode = 1;
+          });
+      - name: Install YDB client
+        run: python -m pip install -r backend/requirements.txt
+      - name: Apply migrations twice
+        run: |
+          python -m backend.migrate
+          python -m backend.migrate
+      - name: Test HTTP intake, idempotency, and readback on TEST YDB
+        env:
+          RUN_YDB_INTEGRATION: "1"
+        run: python -m unittest backend.tests.test_ydb_integration -v
