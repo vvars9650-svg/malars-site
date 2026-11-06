@@ -19,8 +19,8 @@ legal_documents, and schema_migrations.
 Before applying api-gateway.test.yaml, grant functions.functionInvoker to
 serviceAccount:ajeiujenn2jakrrak0gf on this function only. Keep the function
 private. The gateway exposes only health and the two POST routes; no GET data
-routes or catch-all proxy. CORS remains disabled until a TEST frontend origin
-is selected. Do not wire the PROD frontend or DNS to this gateway.
+routes or catch-all proxy. CORS is enabled only for the exact TEST frontend
+origin recorded below. Do not wire the PROD frontend or DNS to this gateway.
 
 Sources:
 - https://yandex.cloud/en/docs/ydb/security/
@@ -49,3 +49,18 @@ Supply YDB_ACCESS_TOKEN_CREDENTIALS only in the process environment. Never run
 this negative test as deployer or owner: if permissions are unexpectedly broad,
 it can create a uniquely named empty synthetic probe table. The DELETE probe
 uses a non-UUID sentinel so no normal intake row can match it.
+
+## TEST frontend deployment (2026-11-07)
+
+The isolated static TEST frontend is built with `python backend/deploy/build_test_frontend.py` and uploaded only to Object Storage bucket `malars-test-frontend-vl-061126-01`:
+
+- Website origin: `https://malars-test-frontend-vl-061126-01.website.yandexcloud.net`
+- API Gateway: `https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net`
+- Build tag: `20261107-test-4`
+- CORS allowlist is the exact website origin; methods POST/OPTIONS; allowed headers Content-Type and Idempotency-Key; max age 600 seconds; OPTIONS success 204.
+- The bucket permits object reads for static hosting. Object listing and settings reads remain authorized-only.
+- The test site displays a synthetic-data warning and links to clearly marked legal drafts. Upload controls are disabled because physical file upload is not part of this implementation.
+- TEST-only API routing is implemented in `test-frontend/test-api-adapter.js`; the builder applies response-status, upload, and no-Apps-Script guards only to generated copies. The tracked production source files `script-core.js` and `site-latest.js` are unchanged.
+- The owner confirmed the public owner contact links should remain displayed. Their values are preserved without change.
+
+Previous build `20261106-test-3` completed real browser POST requests through Gateway -> private Function -> TEST YDB with synthetic data (HTTP 201). The cross-origin JSON requests with `Idempotency-Key` prove successful preflight for the allowed origin. A separate disallowed-origin OPTIONS check has not yet been recorded. Current adapter was locally checked for both endpoint mappings, consent versions, participant legal-form normalization, 201/200, 409, 4xx, 5xx, and idempotency behavior. Local unit suite: 26 tests, 25 passed, one live-YDB test skipped without cloud credentials. Run the cloud integration after push to verify YDB replay/readback/conflict with the current backend.

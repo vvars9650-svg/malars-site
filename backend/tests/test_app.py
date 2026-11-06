@@ -11,6 +11,7 @@ class CustomerRequestValidationTests(unittest.TestCase):
             "region": "Тестовый регион", "city": "Тестовый город",
             "description": "Синтетическая тестовая заявка",
             "organization": "Тестовая организация", "desired_deadline": "2026-12",
+            "email": "test-contact@example.invalid",
             "consent": True, "consent_version": "CONSENT-CUSTOMER-PD-1.0",
         }
 
@@ -18,6 +19,12 @@ class CustomerRequestValidationTests(unittest.TestCase):
         result = validate_customer_request(self.payload, "CONSENT-CUSTOMER-PD-1.0")
         self.assertEqual(result["name"], "Тестовый заказчик")
         self.assertEqual(result["organization"], "Тестовая организация")
+        self.assertEqual(result["email"], "test-contact@example.invalid")
+
+    def test_rejects_invalid_optional_email(self):
+        self.payload["email"] = "not-an-email"
+        with self.assertRaisesRegex(RequestError, "invalid_email"):
+            validate_customer_request(self.payload, "CONSENT-CUSTOMER-PD-1.0")
 
     def test_requires_explicit_consent_and_current_version(self):
         self.payload["consent"] = False

@@ -49,8 +49,8 @@ def _cors(origin: str) -> dict[str, str]:
     if origin and origin in allowed:
         return {
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Idempotency-Key, Authorization",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Idempotency-Key",
             "Access-Control-Max-Age": "600",
             "Vary": "Origin",
         }

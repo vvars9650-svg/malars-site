@@ -39,10 +39,11 @@ class YdbIntegrationTests(unittest.TestCase):
 
         request_id = str(uuid.uuid4())
         payload = {
-            "name": "Тестовый заказчик", "contact": "test@example.invalid",
+            "name": "Тестовый заказчик", "contact": "+7 (900) 000-00-01",
             "region": "Тестовый регион", "city": "Тестовый город",
             "description": "Синтетическая проверка записи и чтения",
             "organization": "Тестовая организация", "desired_deadline": "2026-12",
+            "email": f"customer-{uuid.uuid4().hex[:10]}@example.invalid",
             "consent": True, "consent_version": os.getenv("CUSTOMER_CONSENT_VERSION", "CONSENT-CUSTOMER-PD-1.0"),
         }
         url = f"http://127.0.0.1:{self.server.server_port}"
@@ -111,6 +112,10 @@ class YdbIntegrationTests(unittest.TestCase):
         self.assertEqual(conflict.exception.code, 409)
 
         self.assertEqual(created["request_id"], request_id)
+        self.assertEqual(
+            {item["type"]: item["value"] for item in created["contact_methods"]},
+            {"phone": payload["contact"], "email": payload["email"]},
+        )
         self.assertEqual(repeated, created)
         self.assertEqual(read_back, created)
         self.assertEqual(participant_created["participant_id"], participant_id)

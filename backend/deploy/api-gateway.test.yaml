@@ -14,6 +14,12 @@ paths:
         '200':
           description: Liveness
   /api/customer-requests:
+    x-yc-apigateway-cors:
+      origin: https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+      methods: [POST]
+      allowedHeaders: [Content-Type, Idempotency-Key]
+      maxAge: 600
+      optionsSuccessStatus: 204
     post:
       x-yc-apigateway-integration:
         type: cloud_functions
@@ -26,6 +32,12 @@ paths:
         '200':
           description: Idempotent replay
   /api/participants:
+    x-yc-apigateway-cors:
+      origin: https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+      methods: [POST]
+      allowedHeaders: [Content-Type, Idempotency-Key]
+      maxAge: 600
+      optionsSuccessStatus: 204
     post:
       x-yc-apigateway-integration:
         type: cloud_functions

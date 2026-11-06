@@ -77,14 +77,18 @@ def validate_customer_request(payload: object, consent_version: str) -> dict[str
         raise RequestError("invalid_contact")
     organization = payload.get("organization", "")
     deadline = payload.get("desired_deadline", "")
+    email = payload.get("email", "")
     if not isinstance(organization, str) or len(organization.strip()) > 240:
         raise RequestError("invalid_organization")
     if not isinstance(deadline, str) or len(deadline.strip()) > 80:
         raise RequestError("invalid_desired_deadline")
+    if not isinstance(email, str) or (email.strip() and not EMAIL_RE.fullmatch(email.strip())):
+        raise RequestError("invalid_email")
     if payload.get("consent") is not True or payload.get("consent_version") != consent_version:
         raise RequestError("consent_required")
     result["organization"] = organization.strip()
     result["desired_deadline"] = deadline.strip()
+    result["email"] = email.strip()
     result["consent_version"] = consent_version
     return result
 
@@ -239,9 +243,21 @@ def read_customer_request(pool, request_id: str) -> dict | None:
     """, {"$request_id": request_id})
     if row is None:
         return None
-    return {key: getattr(row, key) for key in (
+    record = {key: getattr(row, key) for key in (
         "request_id", "person_id", "organization_id", "region", "city",
         "description", "desired_deadline", "status", "created_at")}
+    # Read the table separately because the public intake response does not expose it.
+    sets = pool.execute_with_retries("""
+        DECLARE $person_id AS Utf8;
+        SELECT method_type, value FROM person_contact_methods
+        WHERE person_id = $person_id;
+    """, {"$person_id": record["person_id"]})
+    contact_rows = sets[0].rows if sets else []
+    record["contact_methods"] = sorted(
+        ({"type": item.method_type, "value": item.value} for item in contact_rows),
+        key=lambda item: item["type"],
+    )
+    return record
 
 
 def save_customer_request(pool, request_id: str, data: dict[str, str]) -> tuple[dict, bool]:
@@ -263,6 +279,15 @@ def save_customer_request(pool, request_id: str, data: dict[str, str]) -> tuple[
                 VALUES ($person_id, $person_name, $contact, $created_at);
         """, {"$person_id": person_id, "$person_name": data["name"],
               "$contact": data["contact"], "$created_at": created_at}))
+        primary_method = "telegram" if data["contact"].startswith("@") else "email" if "@" in data["contact"] else "phone"
+        contact_methods = [{"person_id": person_id, "method_type": primary_method, "value": data["contact"]}]
+        if data.get("email") and data["email"] != data["contact"]:
+            contact_methods.append({"person_id": person_id, "method_type": "email", "value": data["email"]})
+        _upsert_struct_rows(
+            tx, "person_contact_methods", ["person_id", "method_type", "value"],
+            [ydb.PrimitiveType.Utf8, ydb.PrimitiveType.Utf8, ydb.PrimitiveType.Utf8],
+            contact_methods,
+        )
         if organization_id:
             statements.append(("""
                 DECLARE $organization_id AS Utf8;

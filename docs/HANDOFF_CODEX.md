@@ -91,3 +91,42 @@ Deployer сохраняет ydb.editor для versioned TEST migrations;
 `malars-site/.venv` содержит закреплённый YDB SDK и исключено из Git.
 `.local-artifacts` содержит function ZIP и screenshots, тоже исключено из Git.
 Инструкции развёртывания: `backend/deploy/README.md`.
+
+## MAL-20261106-01 — TEST frontend и CORS (2026-11-07)
+
+Изолированный TEST frontend опубликован в Object Storage, не затрагивая PROD,
+LEGACY, DNS, GitHub Pages или Apps Script:
+
+- Bucket: `malars-test-frontend-vl-061126-01`; публично только чтение объектов,
+  listing и чтение настроек закрыты.
+- Origin: https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+- Gateway: https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net
+- CORS allowlist содержит только этот точный origin, POST/OPTIONS,
+  Content-Type и Idempotency-Key; maxAge=600, OPTIONS success=204.
+- Функция остаётся приватной; применённая версия: `d4eh87bbcq8u7c0c4kla`.
+
+TEST frontend использует существующий интерфейс и оба API маршрута. Маршрутизация
+TEST запросов и тестовые исправления статусов находятся в отдельном
+`test-frontend/test-api-adapter.js` и в TEST-only build patch. Исходные
+`script-core.js` и `site-latest.js` остаются неизменными в Git. Владелец подтвердил,
+что публичные контакты должны оставаться на сайте; они не менялись. TEST build
+удаляет старый Apps Script URL и делает отправку fail-closed, если адаптер не
+загрузился. Показывается предупреждение использовать только синтетические
+данные; три юридические страницы явно помечены черновиками. В TEST загрузка
+файлов отключена с объяснением лимитов будущей реализации.
+
+Реальный браузерный E2E на синтетических данных: customer POST -> 201,
+ID `66ca1f29-671c-40a7-bcf8-eb06c9d66646`; participant POST -> 201,
+ID `c8cb7b66-ce4a-4116-8a6d-9e417098fe30`. Успешные cross-origin POST с
+`application/json` и `Idempotency-Key` подтверждают прохождение preflight для
+разрешённого origin. Отдельный отрицательный OPTIONS с чужим origin пока не
+зафиксирован. Новая версия backend добавляет оба customer contact method в
+существующую таблицу без изменения схемы. Нужен readback и replay/conflict тест
+после интеграционного CI запуска; последний локальный прогон: 26 тестов,
+25 passed, 1 real-YDB integration skipped без облачных credentials.
+
+Локальная безопасная ветка подготовлена от подтверждённого remote HEAD;
+исходный локальный commit сохранён отдельной веткой. В текущем diff нет изменений
+`script-core.js`/`site-latest.js`. После push сюда добавить SHA и ссылку CI.
+Отдельный отчёт на Drive создан управляющим чатом; при закрытии обновить его
+фактическими результатами.
