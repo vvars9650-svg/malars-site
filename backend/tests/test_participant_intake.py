@@ -1,7 +1,11 @@
 import copy
 import unittest
+import uuid
+from unittest.mock import MagicMock, patch
 
-from backend.app import RequestError, validate_participant_request
+from ydb.convert import query_parameters_to_pb
+
+from backend.app import RequestError, save_participant, validate_participant_request
 
 
 class ParticipantRequestValidationTests(unittest.TestCase):
@@ -57,6 +61,35 @@ class ParticipantRequestValidationTests(unittest.TestCase):
             validate_participant_request(payload, "CONSENT-PARTICIPANT-PD-1.0")
         with self.assertRaisesRegex(RequestError, "consent_required"):
             validate_participant_request(self.payload, "CONSENT-PARTICIPANT-PD-2.0")
+
+    def test_normalized_participant_serializes_for_ydb_transaction(self):
+        data = validate_participant_request(self.payload, "CONSENT-PARTICIPANT-PD-1.0")
+        participant_id = str(uuid.uuid4())
+        pool = MagicMock()
+        session = MagicMock()
+        tx = session.transaction.return_value.begin.return_value
+        encoded_regions = []
+
+        def execute(query, params):
+            encoded = query_parameters_to_pb(params)
+            if "UPSERT INTO participant_regions" in query:
+                encoded_regions.append(encoded["$rows"])
+            return MagicMock()
+
+        tx.execute.side_effect = execute
+        pool.retry_operation_sync.side_effect = lambda operation: operation(session)
+        from backend.app import _participant_digest
+        stored = {"participant_id": participant_id, "payload_hash": _participant_digest(data)}
+        with patch("backend.app.read_participant", side_effect=[None, stored]):
+            record, created = save_participant(pool, participant_id, data)
+        self.assertTrue(created)
+        self.assertEqual(record["participant_id"], participant_id)
+        self.assertEqual(len(encoded_regions), 1)
+        rows = encoded_regions[0].value.items
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].items[1].text_value, "REG-025")
+        self.assertEqual(rows[1].items[1].text_value, "REG-026")
+        tx.commit.assert_called_once()
 
     def test_rejects_mismatched_participant_and_legal_form(self):
         payload = copy.deepcopy(self.payload)

@@ -475,7 +475,9 @@ def save_participant(pool, participant_id: str, data: dict) -> tuple[dict, bool]
             ["participant_id", "region_code", "city", "is_base"],
             [ydb.PrimitiveType.Utf8, ydb.PrimitiveType.Utf8,
              ydb.PrimitiveType.Utf8, ydb.PrimitiveType.Bool],
-            [{"participant_id": participant_id, **row} for row in data["regions"]])
+            [{"participant_id": participant_id, "region_code": row["code"],
+              "city": row["city"], "is_base": row["is_base"]}
+             for row in data["regions"]])
         _upsert_struct_rows(tx, "participant_documents",
             ["participant_id", "document_code"],
             [ydb.PrimitiveType.Utf8, ydb.PrimitiveType.Utf8],
