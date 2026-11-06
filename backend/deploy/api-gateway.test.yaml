@@ -1,0 +1,41 @@
+openapi: 3.0.0
+info:
+  title: MALARS TEST intake
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4eei0qik3o9n3ac5n66
+        service_account_id: ajeiujenn2jakrrak0gf
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: Liveness
+  /api/customer-requests:
+    post:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4eei0qik3o9n3ac5n66
+        service_account_id: ajeiujenn2jakrrak0gf
+        payload_format_version: '1.0'
+      responses:
+        '201':
+          description: Created
+        '200':
+          description: Idempotent replay
+  /api/participants:
+    post:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4eei0qik3o9n3ac5n66
+        service_account_id: ajeiujenn2jakrrak0gf
+        payload_format_version: '1.0'
+      responses:
+        '201':
+          description: Created
+        '200':
+          description: Idempotent replay
+        '409':
+          description: Idempotency conflict
