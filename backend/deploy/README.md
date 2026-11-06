@@ -26,3 +26,26 @@ Sources:
 - https://yandex.cloud/en/docs/ydb/security/
 - https://ydb.tech/docs/en/yql/reference/syntax/grant
 - https://yandex.cloud/en/docs/api-gateway/concepts/extensions/cloud-functions
+
+
+## Applied state (2026-11-06)
+
+Owner approved the ACL and TEST endpoint changes. Runtime GRANT applied;
+its database-scoped role is now ydb.auditor. The private function's only
+explicit binding is functions.functionInvoker for malars-test-runtime.
+Version d4e16fngs09r39j0f21c is Active (128 MB).
+
+Gateway malars-test-intake-api (d5dmc1cn4hgv2sulpdpq) is Active:
+https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net
+
+Both synthetic POST routes passed create/replay checks (201/200), participant
+conflict returned 409, health returned 200, data GET routes returned 404,
+and unauthenticated direct function invocation returned 403.
+
+check_runtime_acl.py was executed with a short-lived token impersonating
+malars-test-runtime. It verified AccessDenied for reading schema_migrations
+and competency_directory, deleting a customer row, and creating a table.
+Supply YDB_ACCESS_TOKEN_CREDENTIALS only in the process environment. Never run
+this negative test as deployer or owner: if permissions are unexpectedly broad,
+it can create a uniquely named empty synthetic probe table. The DELETE probe
+uses a non-UUID sentinel so no normal intake row can match it.
