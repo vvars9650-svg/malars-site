@@ -2,6 +2,9 @@ name: MALARS TEST YDB integration
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/participant-intake-ydb
 
 permissions:
   id-token: write
