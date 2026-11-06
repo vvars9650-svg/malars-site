@@ -1,4 +1,4 @@
-"""Opt-in real-YDB test. Uses only a deterministic synthetic request."""
+"""Opt-in real-YDB test. Uses synthetic data and fresh keys for each run."""
 import os
 import json
 import threading
@@ -37,7 +37,7 @@ class YdbIntegrationTests(unittest.TestCase):
         self.assertEqual(second[0], 0)
         self.assertEqual(first[1], second[1])
 
-        request_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "malars-test-synthetic-customer-request-v1"))
+        request_id = str(uuid.uuid4())
         payload = {
             "name": "Тестовый заказчик", "contact": "test@example.invalid",
             "region": "Тестовый регион", "city": "Тестовый город",
@@ -60,7 +60,7 @@ class YdbIntegrationTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             read_back = json.loads(response.read())["data"]
 
-        participant_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "malars-test-synthetic-participant-v1"))
+        participant_id = str(uuid.uuid4())
         participant_payload = {
             "participant": {
                 "participantType": "Компания", "legalForm": "ООО",

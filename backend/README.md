@@ -12,7 +12,7 @@ Apply schema changes separately with `python -m backend.migrate`; migrations are
 
 ## Checks
 
-Run offline validation tests with `python -m unittest discover -s backend/tests -v`. Run the real TEST YDB scenario with `RUN_YDB_INTEGRATION=1 python -m unittest backend.tests.test_ydb_integration -v` after attaching an authorized TEST runtime identity and applying no manually entered DDL. The integration test applies migrations twice, inserts a deterministic synthetic request, reads it back, and verifies idempotent replay.
+Run offline validation tests with `python -m unittest discover -s backend/tests -v`. Run the real TEST YDB scenario with `RUN_YDB_INTEGRATION=1 python -m unittest backend.tests.test_ydb_integration -v` after attaching an authorized TEST runtime identity and applying no manually entered DDL. The integration test applies migrations twice, inserts synthetic customer and participant requests with fresh UUID4 keys for every run, reads it back, and verifies idempotent replay.
 
 The manual GitHub Actions workflow `MALARS TEST YDB integration` uses the existing `malars-test` OIDC environment to run this integration test against only `malars-test-ydb`. Its CI identity needs `ydb.editor` on this database to apply DDL; grant it at database scope only and remove it after the one-off setup if CI migrations are not needed. The application runtime account is separate: give it database connection/read access and YDB row-update access only on the required tables. Do not grant the runtime account schema-management or database-management access.
 
