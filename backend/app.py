@@ -615,8 +615,9 @@ def make_handler(pool):
                     self.respond(exc.status, {"error": exc.code})
                 except (ValueError, json.JSONDecodeError):
                     self.respond(400, {"error": "invalid_request"})
-                except Exception:
-                    logger.error("operation=create_participant error_code=ydb_write_failed")
+                except Exception as exc:
+                    logger.error("operation=create_participant error_code=ydb_write_failed exception_type=%s",
+                                 type(exc).__name__)
                     self.respond(503, {"error": "storage_unavailable"})
                 return
             if path != "/api/customer-requests":
