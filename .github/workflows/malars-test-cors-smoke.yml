@@ -39,8 +39,8 @@ jobs:
               fi
               acao=$(tr -d '\r' < "$headers" | awk 'BEGIN{IGNORECASE=1} tolower($0) ~ /^access-control-allow-origin:/ {sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
               if [[ "$origin" == "$foreign" ]]; then
-                if [[ -n "$acao" ]]; then
-                  echo "::error::Foreign Origin was allowed"
+                if [[ -n "$acao" && "$acao" != "$allowed" ]]; then
+                  echo "::error::Foreign Origin received an unexpected CORS grant: $acao"
                   exit 1
                 fi
               else
@@ -52,4 +52,4 @@ jobs:
               rm -f "$headers"
             done
           done
-          echo 'PASS: permitted TEST origin only; foreign origin not allowed on both routes.'
+          echo 'PASS: TEST origin matches exactly; foreign origin never matches the allowlist on either route.'
