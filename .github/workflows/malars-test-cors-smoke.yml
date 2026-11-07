@@ -1,0 +1,55 @@
+name: MALARS TEST CORS smoke
+
+on:
+  push:
+    branches:
+      - codex/participant-intake-ydb
+    paths:
+      - .github/workflows/malars-test-cors-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cors-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify exact TEST CORS origin and reject foreign origin
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net'
+          allowed='https://malars-test-frontend-vl-061126-01.website.yandexcloud.net'
+          foreign='https://malars-cors-negative.invalid'
+          for path in /api/customer-requests /api/participants; do
+            echo "Checking ${path}"
+            for origin in "$foreign" "$allowed"; do
+              headers="$(mktemp)"
+              code=$(curl -sS --retry 2 --max-time 25 -D "$headers" -o /dev/null -w '%{http_code}' -X OPTIONS "${base}${path}" \
+                -H "Origin: ${origin}" \
+                -H 'Access-Control-Request-Method: POST' \
+                -H 'Access-Control-Request-Headers: content-type,idempotency-key')
+              echo "Origin: ${origin}; HTTP ${code}"
+              cat "$headers"
+              if [[ ! "$code" =~ ^[234][0-9][0-9]$ ]]; then
+                echo "::error::Unexpected preflight HTTP ${code}"
+                exit 1
+              fi
+              acao=$(tr -d '\r' < "$headers" | awk 'BEGIN{IGNORECASE=1} tolower($0) ~ /^access-control-allow-origin:/ {sub(/^[^:]*:[[:space:]]*/, ""); print; exit}')
+              if [[ "$origin" == "$foreign" ]]; then
+                if [[ -n "$acao" ]]; then
+                  echo "::error::Foreign Origin was allowed"
+                  exit 1
+                fi
+              else
+                if [[ "$acao" != "$allowed" ]]; then
+                  echo "::error::Expected exact TEST origin, got: ${acao:-<missing>}"
+                  exit 1
+                fi
+              fi
+              rm -f "$headers"
+            done
+          done
+          echo 'PASS: permitted TEST origin only; foreign origin not allowed on both routes.'
