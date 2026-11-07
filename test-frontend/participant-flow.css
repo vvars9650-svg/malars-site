@@ -1,0 +1,21 @@
+.participant-intake { max-width: 900px; margin: 28px auto; padding: clamp(18px,4vw,36px); }
+.participant-intake h2 { margin: 8px 0 18px; }
+.participant-intake-head { margin-bottom: 20px; }
+.intake-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.intake-grid > label, .participant-intake fieldset { min-width: 0; }
+.participant-intake label, .participant-intake legend { color: inherit; font-weight: 600; }
+.participant-intake input:not([type=checkbox]):not([type=radio]), .participant-intake select, .participant-intake textarea { box-sizing: border-box; width: 100%; min-height: 46px; margin-top: 7px; padding: 11px 12px; border: 1px solid #b9c1c8; border-radius: 8px; font: inherit; background: #fff; color: #17232c; }
+.participant-intake textarea { min-height: 100px; resize: vertical; }
+.participant-intake fieldset { border: 1px solid #d9dfe3; border-radius: 10px; padding: 14px; }
+.intake-checks { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px 12px; max-height: 360px; overflow: auto; padding: 8px 0; }
+.intake-choice { display: flex; align-items: flex-start; gap: 9px; min-height: 40px; padding: 7px 4px; cursor: pointer; }
+.intake-choice input, .intake-consent input { flex: 0 0 auto; width: 20px; height: 20px; margin: 1px 0 0; accent-color: #155d80; }
+.intake-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.participant-intake [data-message] { min-height: 24px; margin: 14px 0 0; color: #176247; }
+.participant-intake [data-message][data-error=true] { color: #a13228; }
+.intake-progress { height: 7px; overflow: hidden; border-radius: 8px; background: #e1e7eb; }
+.intake-progress span { display: block; height: 100%; background: #155d80; transition: width .2s ease; }
+.intake-review { display: grid; gap: 12px; margin: 18px 0; }
+.intake-review > div { padding: 14px; border: 1px solid #d9dfe3; border-radius: 9px; overflow-wrap: anywhere; }
+.intake-consent { grid-column: 1/-1; display: flex; align-items: flex-start; gap: 10px; padding: 12px; }
+@media(max-width:600px) { .intake-grid { grid-template-columns: minmax(0,1fr); } .intake-checks { grid-template-columns: minmax(0,1fr); } .intake-actions { display: grid; grid-template-columns: minmax(0,1fr); } .intake-actions button { width: 100%; min-height: 46px; } }

@@ -1,0 +1,116 @@
+name: MALARS TEST frontend and CORS smoke
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - MALARS TEST participant deployment
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-test-publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build expected TEST frontend
+        run: python backend/deploy/build_test_frontend.py
+      - name: Compare published TEST frontend with this commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="https://malars-test-frontend-vl-061126-01.website.yandexcloud.net"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          files=(
+            index.html logo.svg script.js script-core.js site-upgrade.js site-latest.js styles.css
+            test-api-adapter.js test-config.js test-runtime.js participant-flow.js
+            legal/customer-consent.html legal/participant-consent.html legal/privacy-policy.html
+          )
+          for file in "${files[@]}"; do
+            mkdir -p "$tmp/$(dirname "$file")"
+            curl --compressed --fail --silent --show-error --location \
+              "$origin/$file?verify=$GITHUB_SHA" -o "$tmp/$file"
+            if ! cmp -s ".local-artifacts/test-frontend/$file" "$tmp/$file"; then
+              echo "Published TEST asset differs from commit: $file" >&2
+              exit 1
+            fi
+          done
+          echo "All ${#files[@]} published TEST assets match commit $GITHUB_SHA."
+      - name: Verify exact TEST CORS allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net/api/customer-requests"
+          allowed="https://malars-test-frontend-vl-061126-01.website.yandexcloud.net"
+          denied="https://malars-cors-negative.invalid"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          status=$(curl --silent --show-error --output /dev/null --dump-header "$tmp/allowed" \
+            --write-out '%{http_code}' --request OPTIONS "$api" \
+            --header "Origin: $allowed" \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type,idempotency-key')
+          test "$status" = "204"
+          allow_origin=$(tr -d '\r' < "$tmp/allowed" | awk 'tolower($1) == "access-control-allow-origin:" { $1=""; sub(/^ /, ""); print; exit }')
+          test "$allow_origin" = "$allowed"
+
+          status=$(curl --silent --show-error --output /dev/null --dump-header "$tmp/denied" \
+            --write-out '%{http_code}' --request OPTIONS "$api" \
+            --header "Origin: $denied" \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type,idempotency-key')
+          if tr -d '\r' < "$tmp/denied" | grep -Eiq '^access-control-allow-origin:'; then
+            echo "Disallowed Origin received Access-Control-Allow-Origin (HTTP $status)." >&2
+            exit 1
+          fi
+          echo "Allowed Origin preflight passed (HTTP 204); disallowed Origin received no allow-origin header (HTTP $status)."
+      - name: Verify draft route CORS methods and secret headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net"
+          allowed="https://malars-test-frontend-vl-061126-01.website.yandexcloud.net"
+          denied="https://malars-cors-negative.invalid"
+          draft_id="00000000-0000-4000-8000-000000000001"
+          cases=(
+            "$base/api/participant-drafts|POST|content-type,idempotency-key,x-participant-token"
+            "$base/api/participant-drafts/$draft_id|GET|x-participant-token"
+            "$base/api/participant-drafts/$draft_id|PUT|content-type,x-participant-token,x-intake-revision"
+            "$base/api/participant-drafts/$draft_id/submit|POST|content-type,x-participant-token,x-intake-revision"
+          )
+          for entry in "${cases[@]}"; do
+            IFS='|' read -r api method headers <<< "$entry"
+            status=$(curl --silent --show-error --output /dev/null --dump-header /tmp/draft-cors-allowed \
+              --write-out '%{http_code}' --request OPTIONS "$api" --header "Origin: $allowed" \
+              --header "Access-Control-Request-Method: $method" --header "Access-Control-Request-Headers: $headers")
+            test "$status" = "204"
+            allow_origin=$(tr -d '\r' < /tmp/draft-cors-allowed | awk 'tolower($1) == "access-control-allow-origin:" { $1=""; sub(/^ /, ""); print; exit }')
+            test "$allow_origin" = "$allowed"
+            status=$(curl --silent --show-error --output /dev/null --dump-header /tmp/draft-cors-denied \
+              --write-out '%{http_code}' --request OPTIONS "$api" --header "Origin: $denied" \
+              --header "Access-Control-Request-Method: $method" --header "Access-Control-Request-Headers: $headers")
+            if tr -d '\r' < /tmp/draft-cors-denied | grep -Eiq '^access-control-allow-origin:'; then
+              echo "Foreign origin received a CORS grant for $api ($method)." >&2
+              exit 1
+            fi
+          done
+          echo 'Draft route preflight is limited to the TEST origin and required headers.'
+      - name: Run desktop to mobile draft and stable-number acceptance
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+          npx playwright test test-frontend/e2e/participant-flow.spec.cjs --reporter=list

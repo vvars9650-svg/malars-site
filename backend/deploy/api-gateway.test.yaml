@@ -51,3 +51,78 @@ paths:
           description: Idempotent replay
         '409':
           description: Idempotency conflict
+  /api/participant-drafts:
+    x-yc-apigateway-cors:
+      origin: https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+      methods: [POST]
+      allowedHeaders: [Content-Type, Idempotency-Key, X-Participant-Token]
+      maxAge: 600
+      optionsSuccessStatus: 204
+    post:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4eei0qik3o9n3ac5n66
+        service_account_id: ajeiujenn2jakrrak0gf
+        payload_format_version: '1.0'
+      responses:
+        '201':
+          description: Draft created; the client retains its one-time bearer token
+  /api/participant-drafts/{intake_id}:
+    x-yc-apigateway-cors:
+      origin: https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+      methods: [GET, PUT]
+      allowedHeaders: [Content-Type, X-Participant-Token, X-Intake-Revision]
+      maxAge: 600
+      optionsSuccessStatus: 204
+    parameters:
+      - name: intake_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4eei0qik3o9n3ac5n66
+        service_account_id: ajeiujenn2jakrrak0gf
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: Authorized intake read
+    put:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4eei0qik3o9n3ac5n66
+        service_account_id: ajeiujenn2jakrrak0gf
+        payload_format_version: '1.0'
+      responses:
+        '200':
+          description: Revision updated
+        '409':
+          description: Revision conflict
+  /api/participant-drafts/{intake_id}/submit:
+    x-yc-apigateway-cors:
+      origin: https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+      methods: [POST]
+      allowedHeaders: [Content-Type, X-Participant-Token, X-Intake-Revision]
+      maxAge: 600
+      optionsSuccessStatus: 204
+    parameters:
+      - name: intake_id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: d4eei0qik3o9n3ac5n66
+        service_account_id: ajeiujenn2jakrrak0gf
+        payload_format_version: '1.0'
+      responses:
+        '201':
+          description: Submitted for review
+        '200':
+          description: Existing submission updated
+        '409':
+          description: Revision conflict

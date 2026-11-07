@@ -37,6 +37,7 @@ class MigrationStatementsTests(unittest.TestCase):
         migrations = sorted(migration_dir.glob("*.sql"))
         self.assertEqual([path.name for path in migrations], [
             "0001_customer_intake.sql", "0002_participant_intake.sql",
+            "0003_participant_drafts.sql",
         ])
         for path in migrations:
             statements = migration_statements(path.read_text(encoding="utf-8"))

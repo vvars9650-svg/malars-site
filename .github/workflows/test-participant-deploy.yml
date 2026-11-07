@@ -1,0 +1,186 @@
+name: MALARS TEST participant deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/participant-intake-ydb
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: malars-test-participant-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-test:
+    if: github.ref == 'refs/heads/codex/participant-intake-ydb'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: malars-test
+    env:
+      YC_SERVICE_ACCOUNT_ID: ajes8qkmdkn775e4i7d1
+      YC_FOLDER_ID: b1glkul9pg8q9sqq20ou
+      OIDC_AUDIENCE: https://github.com/vvars9650-svg
+      OIDC_SUBJECT: repo:vvars9650-svg@315589829/malars-site@1348651215:environment:malars-test
+      YDB_ENDPOINT: grpcs://ydb.serverless.yandexcloud.net:2135
+      YDB_DATABASE: /ru-central1/b1gh45ejbkk3jcuutd48/etnfksq3umfh18ghde7m
+      YDB_AUTH_MODE: env
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Offline backend tests and TEST frontend build
+        run: |
+          python -m unittest discover -s backend/tests -v
+          python backend/deploy/build_test_frontend.py
+      - name: Obtain temporary TEST YDB credentials
+        shell: node {0}
+        run: |
+          const fs = require('node:fs');
+          const env = process.env;
+          const mask = value => {
+            if (!value) throw new Error('Missing OIDC value');
+            process.stdout.write(`::add-mask::${value}\n`);
+            return value;
+          };
+          const request = async (url, options = {}) => {
+            const response = await fetch(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(30000) });
+            if (!response.ok) throw new Error(`Credential exchange failed with HTTP ${response.status}`);
+            return response.json();
+          };
+          async function main() {
+            mask(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN);
+            const oidcUrl = new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);
+            oidcUrl.searchParams.set('audience', env.OIDC_AUDIENCE);
+            const oidc = await request(oidcUrl, {
+              headers: { Authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+            });
+            const jwt = mask(oidc.value);
+            const claims = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url'));
+            for (const [key, expected] of Object.entries({
+              iss: 'https://token.actions.githubusercontent.com', aud: env.OIDC_AUDIENCE,
+              sub: env.OIDC_SUBJECT, repository_id: '1348651215',
+              ref: 'refs/heads/codex/participant-intake-ydb',
+            })) {
+              if (claims[key] !== expected) throw new Error(`OIDC claim mismatch: ${key}`);
+            }
+            const exchange = await request('https://auth.yandex.cloud/oauth/token', {
+              method: 'POST',
+              body: new URLSearchParams({
+                grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+                requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+                audience: env.YC_SERVICE_ACCOUNT_ID,
+                subject_token: jwt,
+                subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+              }),
+            });
+            const iamToken = mask(exchange.access_token);
+            fs.appendFileSync(env.GITHUB_ENV, `YDB_ACCESS_TOKEN_CREDENTIALS=${iamToken}\nYC_IAM_TOKEN=${iamToken}\n`);
+            console.log('Temporary TEST identity ready; repository and branch claims verified.');
+          }
+          main().catch(error => {
+            console.error(error.message.replace(/Bearer\s+\S+/gi, '[REDACTED]'));
+            process.exitCode = 1;
+          });
+      - name: Apply TEST migrations and runtime row grants
+        run: |
+          python -m pip install -r backend/requirements.txt
+          python -m backend.migrate
+          python -m backend.migrate
+          python backend/deploy/grant_runtime_drafts.test.py
+      - name: Exercise complete intake on TEST YDB
+        env:
+          RUN_YDB_INTEGRATION: "1"
+        run: python -m unittest backend.tests.test_ydb_integration -v
+      - name: Install Yandex Cloud CLI
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+      - name: Package and publish TEST API function
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$RUNNER_TEMP/malars-function"
+          mkdir -p "$package"
+          python -m pip install --target "$package" -r backend/requirements.txt
+          cp backend/app.py backend/function.py backend/reference_data.py "$package/"
+          (cd "$package" && zip -qr "$RUNNER_TEMP/malars-function.zip" .)
+          yc --token "$YC_IAM_TOKEN" serverless function version create \
+            --function-id d4eei0qik3o9n3ac5n66 \
+            --runtime python312 --entrypoint function.handler --memory 512m \
+            --execution-timeout 60s --service-account-id ajeiujenn2jakrrak0gf \
+            --source-path "$RUNNER_TEMP/malars-function.zip" \
+            --environment YDB_ENDPOINT=grpcs://ydb.serverless.yandexcloud.net:2135,YDB_DATABASE=/ru-central1/b1gh45ejbkk3jcuutd48/etnfksq3umfh18ghde7m,YDB_AUTH_MODE=metadata,CUSTOMER_CONSENT_VERSION=CONSENT-CUSTOMER-PD-1.0,PARTICIPANT_CONSENT_VERSION=CONSENT-PARTICIPANT-PD-1.0,CORS_ALLOWED_ORIGINS=https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+      - name: Publish TEST API Gateway routes
+        run: yc --token "$YC_IAM_TOKEN" serverless api-gateway update --id d5dmc1cn4hgv2sulpdpq --spec=backend/deploy/api-gateway.test.yaml
+      - name: Publish TEST frontend to its dedicated bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .local-artifacts/test-frontend
+          while IFS= read -r -d '' file; do
+            key="${file#./}"
+            cache="public,max-age=31536000,immutable"
+            case "$key" in index.html|legal/*) cache="no-cache" ;; esac
+            yc --token "$YC_IAM_TOKEN" storage s3api put-object \
+              --bucket malars-test-frontend-vl-061126-01 --key "$key" --body "$file" \
+              --content-type "$(file --brief --mime-type "$file")" --cache-control "$cache" >/dev/null
+          done < <(find . -type f -print0)
+          echo 'TEST frontend objects uploaded.'
+      - name: Read back deployed TEST health and frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          api='https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net/health'
+          origin='https://malars-test-frontend-vl-061126-01.website.yandexcloud.net'
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error "$api" | grep -q '"status":"ok"'; then break; fi
+            if [ "$attempt" = 12 ]; then echo 'TEST API health did not recover.' >&2; exit 1; fi
+            sleep 5
+          done
+          curl --fail --silent --show-error "$origin/index.html?verify=$GITHUB_SHA" | grep -q '20261107-test-5'
+          curl --fail --silent --show-error "$origin/participant-flow.js?verify=$GITHUB_SHA" | grep -q 'Уровень 1 из 2'
+          echo 'TEST API and versioned intake assets are live.'
+      - name: Verify TEST CORS routes and foreign-origin denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net'
+          allowed='https://malars-test-frontend-vl-061126-01.website.yandexcloud.net'
+          denied='https://malars-cors-negative.invalid'
+          id='00000000-0000-4000-8000-000000000001'
+          cases=(
+            "$base/api/participant-drafts|POST|content-type,idempotency-key,x-participant-token"
+            "$base/api/participant-drafts/$id|GET|x-participant-token"
+            "$base/api/participant-drafts/$id|PUT|content-type,x-participant-token,x-intake-revision"
+            "$base/api/participant-drafts/$id/submit|POST|content-type,x-participant-token,x-intake-revision"
+          )
+          for entry in "${cases[@]}"; do
+            IFS='|' read -r url method headers <<< "$entry"
+            status=$(curl --silent --show-error --output /dev/null --dump-header /tmp/cors-allowed \
+              --write-out '%{http_code}' --request OPTIONS "$url" --header "Origin: $allowed" \
+              --header "Access-Control-Request-Method: $method" --header "Access-Control-Request-Headers: $headers")
+            test "$status" = '204'
+            tr -d '\r' < /tmp/cors-allowed | grep -Fqi "Access-Control-Allow-Origin: $allowed"
+            status=$(curl --silent --show-error --output /dev/null --dump-header /tmp/cors-denied \
+              --write-out '%{http_code}' --request OPTIONS "$url" --header "Origin: $denied" \
+              --header "Access-Control-Request-Method: $method" --header "Access-Control-Request-Headers: $headers")
+            if tr -d '\r' < /tmp/cors-denied | grep -Eiq '^access-control-allow-origin:'; then
+              echo "Foreign origin received a CORS grant ($method $url)." >&2
+              exit 1
+            fi
+          done
+          echo 'TEST draft CORS is limited to the configured website origin.'
+      - name: Accept desktop draft, mobile resume, submission, and stable-number update
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+          npx playwright test test-frontend/e2e/participant-flow.spec.cjs --reporter=list

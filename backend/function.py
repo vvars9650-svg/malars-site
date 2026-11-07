@@ -13,13 +13,15 @@ try:
     from .app import (
         MAX_BODY, RequestError, create_pool, read_customer_request, read_participant,
         save_customer_request, save_participant, validate_customer_request,
-        validate_participant_request,
+        validate_participant_request, validate_participant_draft, create_participant_draft,
+        authorize_participant_draft, update_participant_draft, submit_participant_draft,
     )
 except ImportError:  # Cloud Functions source root is the backend directory.
     from app import (
         MAX_BODY, RequestError, create_pool, read_customer_request, read_participant,
         save_customer_request, save_participant, validate_customer_request,
-        validate_participant_request,
+        validate_participant_request, validate_participant_draft, create_participant_draft,
+        authorize_participant_draft, update_participant_draft, submit_participant_draft,
     )
 
 logger = logging.getLogger("malars.function")
@@ -37,6 +39,8 @@ def _response(status: int, body: dict | str, headers: dict[str, str] | None = No
         "headers": {
             "Content-Type": "application/json; charset=utf-8",
             "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
             **(headers or {}),
         },
         "isBase64Encoded": False,
@@ -49,8 +53,8 @@ def _cors(origin: str) -> dict[str, str]:
     if origin and origin in allowed:
         return {
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Idempotency-Key",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Idempotency-Key, X-Participant-Token, X-Intake-Revision",
             "Access-Control-Max-Age": "600",
             "Vary": "Origin",
         }
@@ -110,7 +114,10 @@ def handler(event: dict, context) -> dict:
     is_customer_read = method == "GET" and path.startswith("/api/customer-requests/")
     is_participant_read = method == "GET" and path.startswith("/api/participants/")
     is_intake_write = method == "POST" and path in {"/api/customer-requests", "/api/participants"}
-    if not (is_customer_read or is_participant_read or is_intake_write):
+    draft_collection = method == "POST" and path == "/api/participant-drafts"
+    draft_match = __import__("re").fullmatch(r"/api/participant-drafts/([0-9a-fA-F-]{36})(?:/(submit))?", path)
+    is_draft_resource = bool(draft_match)
+    if not (is_customer_read or is_participant_read or is_intake_write or draft_collection or is_draft_resource):
         return _response(404, {"error": "not_found"}, cors_headers)
 
     try:
@@ -136,6 +143,41 @@ def handler(event: dict, context) -> dict:
             if record:
                 record.pop("payload_hash", None)
             return _response(200, {"data": record} if record else {"error": "not_found"}, cors_headers)
+
+        if draft_collection and method == "POST":
+            payload = json.loads(_body_bytes(event))
+            version = os.getenv("PARTICIPANT_CONSENT_VERSION", "CONSENT-PARTICIPANT-PD-1.0")
+            answers = validate_participant_draft(payload, version, require_level_one=True)
+            intake_id = str(uuid.UUID(headers.get("idempotency-key", "")))
+            draft, created = create_participant_draft(pool, answers, intake_id, headers.get("x-participant-token", ""))
+            draft.pop("token_hash", None)
+            return _response(201 if created else 200, {"data": draft}, cors_headers)
+
+        if is_draft_resource:
+            intake_id = str(uuid.UUID(draft_match.group(1)))
+            token = headers.get("x-participant-token", "")
+            draft = authorize_participant_draft(pool, intake_id, token)
+            if method == "GET":
+                draft.pop("token_hash", None)
+                return _response(200, {"data": draft}, cors_headers)
+            if method in {"PUT", "POST"}:
+                payload = json.loads(_body_bytes(event))
+                version = os.getenv("PARTICIPANT_CONSENT_VERSION", "CONSENT-PARTICIPANT-PD-1.0")
+                answers = validate_participant_draft(payload, version)
+                try:
+                    expected_revision = int(headers.get("x-intake-revision", ""))
+                except ValueError:
+                    raise RequestError("revision_required", 400) from None
+                if expected_revision != int(draft["revision"]):
+                    raise RequestError("revision_conflict", 409)
+                if draft_match.group(2) == "submit":
+                    submitted, created = submit_participant_draft(pool, draft, answers, version)
+                    submitted.pop("token_hash", None)
+                    return _response(201 if created else 200, {"data": submitted}, cors_headers)
+                updated = update_participant_draft(pool, draft, answers)
+                updated.pop("token_hash", None)
+                return _response(200, {"data": updated}, cors_headers)
+            return _response(405, {"error": "method_not_allowed"}, cors_headers)
 
         if is_intake_write:
             payload = json.loads(_body_bytes(event))
