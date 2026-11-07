@@ -995,11 +995,12 @@ def make_handler(pool):
             except (ValueError, json.JSONDecodeError):
                 self.respond(400, {"error": "invalid_request"})
             except Exception as exc:
-                frame = next((item for item in reversed(traceback.extract_tb(exc.__traceback__))
-                              if os.path.basename(item.filename) == "app.py"), None)
-                location = f"app.py:{frame.lineno}" if frame else "unknown"
-                logger.error("operation=update_participant_draft error_code=ydb_write_failed exception_type=%s error_location=%s",
-                             type(exc).__name__, location)
+                frames = [f"{item.name}:{item.lineno}" for item in traceback.extract_tb(exc.__traceback__)
+                          if os.path.basename(item.filename) == "app.py"]
+                location = ",".join(frames) or "unknown"
+                status = getattr(exc, "status", None)
+                logger.error("operation=update_participant_draft error_code=ydb_write_failed exception_type=%s ydb_status=%s app_frames=%s",
+                             type(exc).__name__, status, location)
                 self.respond(503, {"error": "storage_unavailable"})
 
     return Handler
