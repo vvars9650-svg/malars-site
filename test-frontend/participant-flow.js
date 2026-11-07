@@ -108,8 +108,8 @@
     if(!data.contactName&&!data.displayName)error="Укажите контактное лицо.";
     else if(!data.email||!/^\S+@\S+\.\S{2,}$/.test(data.email))error="Укажите корректный email для связи.";
     else if(needsInn&&inn.length!==(["ООО","АО","ПАО"].includes(legal)?10:12))error=`Для выбранной формы нужен ИНН из ${["ООО","АО","ПАО"].includes(legal)?10:12} цифр.`;
-    else if(!(data.competencies||[]).length)error="Выберите хотя бы одну специализацию.";
-    else if(!(data.objectExperience||[]).length&&!(data.objectReady||[]).length)error="Укажите опыт или готовность по типам объектов.";
+    else if(section===6&&!(data.competencies||[]).length)error="Выберите хотя бы одну специализацию.";
+    else if(section===6&&!(data.objectExperience||[]).length&&!(data.objectReady||[]).length)error="Укажите опыт или готовность по типам объектов.";
     if(error){statusLine(error,true);const bad=[...form].find(x=>!x.value&&x.type!=="checkbox");bad?.focus();return false;}return true;
   }
   async function saveAnswers() {
@@ -149,3 +149,4 @@
   renderStart();
   if(window.MALARS_TEST_DATA)resumeFromLink();
 })();
+
