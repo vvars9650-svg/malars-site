@@ -406,6 +406,12 @@ def _draft_token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("ascii")).hexdigest()
 
 
+def _ydb_uint64(value: int):
+    if ydb is None:
+        return value
+    return ydb.TypedValue(value, ydb.PrimitiveType.Uint64)
+
+
 def read_participant_draft(pool, intake_id: str) -> dict | None:
     row = _first_row(pool, """
         DECLARE $intake_id AS Utf8;
@@ -501,8 +507,8 @@ def update_participant_draft(pool, draft: dict, answers: dict) -> dict:
         UPDATE participant_intakes SET answers = $answers, revision = $revision,
             updated_at = $updated_at
         WHERE intake_id = $intake_id AND revision = $expected_revision;
-    """, {"$intake_id": draft["intake_id"], "$expected_revision": expected,
-          "$answers": answers_json, "$revision": expected + 1, "$updated_at": updated_at})
+    """, {"$intake_id": draft["intake_id"], "$expected_revision": _ydb_uint64(expected),
+          "$answers": answers_json, "$revision": _ydb_uint64(expected + 1), "$updated_at": updated_at})
     current = read_participant_draft(pool, draft["intake_id"])
     if current is None:
         raise RequestError("revision_conflict", 409)
@@ -536,7 +542,7 @@ def submit_participant_draft(pool, draft: dict, answers: dict, consent_version: 
             $updated_at, $expires_at, $participant_id, $token_hash);
     """, {"$intake_id": draft["intake_id"], "$public_number": draft["public_number"],
           "$answers": json.dumps(answers, ensure_ascii=False, separators=(",", ":")),
-          "$status": "review_pending", "$revision": changed["revision"],
+          "$status": "review_pending", "$revision": _ydb_uint64(changed["revision"]),
           "$created_at": draft["created_at"], "$updated_at": changed["updated_at"],
           "$expires_at": draft["expires_at"], "$participant_id": draft["intake_id"],
           "$token_hash": draft["token_hash"]})
