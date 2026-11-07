@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     environment: malars-test
     env:
-      YC_SERVICE_ACCOUNT_ID: ajes8qkmdkn775e4i7d1
+      YC_OIDC_TARGET_SERVICE_ACCOUNT_ID: ajes8qkmdkn775e4i7d1
       YC_FOLDER_ID: b1glkul9pg8q9sqq20ou
       OIDC_AUDIENCE: https://github.com/vvars9650-svg
       OIDC_SUBJECT: repo:vvars9650-svg@315589829/malars-site@1348651215:environment:malars-test
@@ -77,7 +77,7 @@ jobs:
               body: new URLSearchParams({
                 grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
                 requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
-                audience: env.YC_SERVICE_ACCOUNT_ID,
+                audience: env.YC_OIDC_TARGET_SERVICE_ACCOUNT_ID,
                 subject_token: jwt,
                 subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
               }),
