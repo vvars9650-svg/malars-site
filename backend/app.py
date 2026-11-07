@@ -499,7 +499,8 @@ def update_participant_draft(pool, draft: dict, answers: dict) -> dict:
             DECLARE $intake_id AS Utf8;
             SELECT revision FROM participant_intakes WHERE intake_id = $intake_id;
         """, {"$intake_id": draft["intake_id"]}) as result:
-            rows = result[0].rows if result else []
+            result_sets = list(result)
+        rows = result_sets[0].rows if result_sets else []
         if not rows or int(rows[0].revision) != expected:
             tx.rollback()
             raise RequestError("revision_conflict", 409)
