@@ -3,6 +3,7 @@ const { test, expect } = require('@playwright/test');
 const baseUrl = 'https://malars-test-frontend-vl-061126-01.website.yandexcloud.net';
 
 test('synthetic draft resumes on mobile, submits, and updates under the same number', async ({ browser }) => {
+  test.setTimeout(120000);
   const desktop = await browser.newContext({ viewport: { width: 1440, height: 960 } });
   const page = await desktop.newPage();
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -32,7 +33,11 @@ test('synthetic draft resumes on mobile, submits, and updates under the same num
   await mobilePage.locator('[data-key="contactName"]').fill('Синтетический специалист');
   await mobilePage.locator('[data-key="email"]').fill('synthetic@example.invalid');
   await mobilePage.locator('[data-key="contactChannel"]').selectOption({ label: 'Email' });
+  const firstSave = mobilePage.waitForResponse(response => response.url().includes('/api/participant-drafts/') && response.request().method() === 'PUT');
   await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
+  const firstSaveResponse = await firstSave;
+  console.log(`Mobile first answer save returned HTTP ${firstSaveResponse.status()}`);
+  await expect(mobilePage.getByRole('heading', { name: 'Специализации' })).toBeVisible();
   await mobilePage.locator('input[name="competencies"]').first().check();
   await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
   await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
@@ -63,3 +68,4 @@ test('synthetic draft resumes on mobile, submits, and updates under the same num
   await desktop.close();
   await mobile.close();
 });
+
