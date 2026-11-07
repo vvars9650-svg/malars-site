@@ -115,11 +115,18 @@ jobs:
           python -m pip install --target "$package" -r backend/requirements.txt
           cp backend/app.py backend/function.py backend/reference_data.py "$package/"
           (cd "$package" && zip -qr "$RUNNER_TEMP/malars-function.zip" .)
+          function_object="_test-deploy/malars-function-$GITHUB_SHA.zip"
+          curl --fail --silent --show-error --request PUT \
+            --header "Authorization: Bearer $YC_IAM_TOKEN" \
+            --header "Content-Type: application/zip" \
+            --upload-file "$RUNNER_TEMP/malars-function.zip" \
+            "https://storage.yandexcloud.net/malars-test-frontend-vl-061126-01/$function_object"
           yc serverless function version create \
             --function-id d4eei0qik3o9n3ac5n66 \
             --runtime python312 --entrypoint function.handler --memory 512m \
             --execution-timeout 60s --service-account-id ajeiujenn2jakrrak0gf \
-            --source-path "$RUNNER_TEMP/malars-function.zip" \
+            --package-bucket-name malars-test-frontend-vl-061126-01 \
+            --package-object-name "$function_object" \
             --environment YDB_ENDPOINT=grpcs://ydb.serverless.yandexcloud.net:2135,YDB_DATABASE=/ru-central1/b1gh45ejbkk3jcuutd48/etnfksq3umfh18ghde7m,YDB_AUTH_MODE=metadata,CUSTOMER_CONSENT_VERSION=CONSENT-CUSTOMER-PD-1.0,PARTICIPANT_CONSENT_VERSION=CONSENT-PARTICIPANT-PD-1.0,CORS_ALLOWED_ORIGINS=https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
       - name: Publish TEST API Gateway routes
         run: yc serverless api-gateway update --id d5dmc1cn4hgv2sulpdpq --spec=backend/deploy/api-gateway.test.yaml
