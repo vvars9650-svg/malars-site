@@ -491,32 +491,26 @@ def update_participant_draft(pool, draft: dict, answers: dict) -> dict:
         raise RequestError("invalid_status", 409)
     expected = int(draft["revision"])
     updated_at = datetime.now(timezone.utc).isoformat()
-    changed = {**draft, "answers": answers, "revision": expected + 1, "updated_at": updated_at}
-    changed["answers_json"] = json.dumps(answers, ensure_ascii=False, separators=(",", ":"))
-    def write_transaction(session):
-        tx = session.transaction().begin()
-        with tx.execute("""
-            DECLARE $intake_id AS Utf8;
-            SELECT revision FROM participant_intakes WHERE intake_id = $intake_id;
-        """, {"$intake_id": draft["intake_id"]}) as result:
-            result_sets = list(result)
-        rows = result_sets[0].rows if result_sets else []
-        if not rows or int(rows[0].revision) != expected:
-            tx.rollback()
-            raise RequestError("revision_conflict", 409)
-        with tx.execute("""
-            DECLARE $intake_id AS Utf8;
-            DECLARE $answers AS Utf8;
-            DECLARE $revision AS Uint64;
-            DECLARE $updated_at AS Utf8;
-            UPDATE participant_intakes SET answers = $answers, revision = $revision,
-                updated_at = $updated_at WHERE intake_id = $intake_id;
-        """, {"$intake_id": draft["intake_id"], "$answers": changed["answers_json"],
-              "$revision": expected + 1, "$updated_at": updated_at}):
-            pass
-        tx.commit()
-    pool.retry_operation_sync(write_transaction)
-    return changed
+    answers_json = json.dumps(answers, ensure_ascii=False, separators=(",", ":"))
+    pool.execute_with_retries("""
+        DECLARE $intake_id AS Utf8;
+        DECLARE $expected_revision AS Uint64;
+        DECLARE $answers AS Utf8;
+        DECLARE $revision AS Uint64;
+        DECLARE $updated_at AS Utf8;
+        UPDATE participant_intakes SET answers = $answers, revision = $revision,
+            updated_at = $updated_at
+        WHERE intake_id = $intake_id AND revision = $expected_revision;
+    """, {"$intake_id": draft["intake_id"], "$expected_revision": expected,
+          "$answers": answers_json, "$revision": expected + 1, "$updated_at": updated_at})
+    current = read_participant_draft(pool, draft["intake_id"])
+    if current is None:
+        raise RequestError("revision_conflict", 409)
+    current_answers = json.loads(current["answers"])
+    if int(current["revision"]) != expected + 1 or current_answers != answers:
+        raise RequestError("revision_conflict", 409)
+    current["answers"] = current_answers
+    return current
 
 
 def submit_participant_draft(pool, draft: dict, answers: dict, consent_version: str) -> tuple[dict, bool]:
