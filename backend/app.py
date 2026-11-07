@@ -995,6 +995,9 @@ def make_handler(pool):
                 status = getattr(exc, "status", None)
                 logger.error("operation=update_participant_draft error_code=ydb_write_failed exception_type=%s ydb_status=%s app_frames=%s",
                              type(exc).__name__, status, location)
+                if os.getenv("MALARS_TEST_YDB_DIAGNOSTICS") == "1":
+                    issues = [getattr(item, "message", "") for item in (getattr(exc, "issues", None) or [])]
+                    logger.error("operation=update_participant_draft test_ydb_issues=%s", issues[:5])
                 self.respond(503, {"error": "storage_unavailable"})
 
     return Handler
