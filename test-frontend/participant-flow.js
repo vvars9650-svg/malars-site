@@ -37,6 +37,7 @@
     const res = await fetch(API + path, {method, cache:"no-store", headers:{"Content-Type":"application/json", ...headers}, body:body == null ? undefined : JSON.stringify(body)});
     const json = await res.json().catch(() => ({}));
     if (!res.ok) { const e = new Error(json.error || `HTTP ${res.status}`); e.status = res.status; throw e; }
+    json.httpStatus = res.status;
     return json;
   };
   const tokenHeaders = () => ({"X-Participant-Token": token, "X-Intake-Revision": String(revision)});
@@ -126,7 +127,7 @@
     if(!host.querySelector("[data-final-consent]").checked){statusLine("Подтвердите согласие для тестовой отправки.",true);return;}
     if(!validateRequired())return;
     if(busy)return;busy=true;
-    try {const r=await send(draftPath()+"/submit","POST",{answers:{...data,consent:true,consentVersion:CONSENT}},{...tokenHeaders()});revision=r.data.revision;number=r.data.public_number;status=r.data.status;data=r.data.answers;renderMessage(r.status===201?"submitted":"updated");}
+    try {const r=await send(draftPath()+"/submit","POST",{answers:{...data,consent:true,consentVersion:CONSENT}},{...tokenHeaders()});revision=r.data.revision;number=r.data.public_number;status=r.data.status;data=r.data.answers;renderMessage(r.httpStatus===201?"submitted":"updated");}
     catch(e){statusLine(e.status===409?"Ответы изменены в другом окне. Перезагрузите страницу для защиты от потери данных.":"Не удалось отправить анкету. Данные сохранены в черновике — повторите попытку.",true);}finally{busy=false;}
   }
   host.addEventListener("click",async event=>{
