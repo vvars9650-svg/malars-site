@@ -151,7 +151,7 @@ jobs:
           api='https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net/health'
           origin='https://malars-test-frontend-vl-061126-01.website.yandexcloud.net'
           for attempt in {1..12}; do
-            if curl --fail --silent --show-error "$api" | grep -q '"status":"ok"'; then break; fi
+            if curl --fail --silent --show-error "$api" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then break; fi
             if [ "$attempt" = 12 ]; then echo 'TEST API health did not recover.' >&2; exit 1; fi
             sleep 5
           done
