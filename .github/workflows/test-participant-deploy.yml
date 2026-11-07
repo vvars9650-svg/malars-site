@@ -182,12 +182,17 @@ jobs:
             status=$(curl --silent --show-error --output /dev/null --dump-header /tmp/cors-denied \
               --write-out '%{http_code}' --request OPTIONS "$url" --header "Origin: $denied" \
               --header "Access-Control-Request-Method: $method" --header "Access-Control-Request-Headers: $headers")
-            if tr -d '\r' < /tmp/cors-denied | grep -Eiq '^access-control-allow-origin:'; then
-              echo "Foreign origin received a CORS grant ($method $url)." >&2
+            foreign_header=$(tr -d '\r' < /tmp/cors-denied | awk 'tolower($1) == "access-control-allow-origin:" {print $2; exit}')
+            if [ "$foreign_header" = "$denied" ] || [ "$foreign_header" = '*' ]; then
+              echo "Foreign origin was reflected or wildcarded ($method $url)." >&2
+              exit 1
+            fi
+            if [ -n "$foreign_header" ] && [ "$foreign_header" != "$allowed" ]; then
+              echo "Unexpected CORS origin header for foreign request: $foreign_header" >&2
               exit 1
             fi
           done
-          echo 'TEST draft CORS is limited to the configured website origin.'
+          echo 'TEST CORS does not grant the foreign origin.'
       - name: Accept desktop draft, mobile resume, submission, and stable-number update
         run: |
           npm install --no-save @playwright/test@1.55.0
