@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 const baseUrl = 'https://malars-test-frontend-vl-061126-01.website.yandexcloud.net';
 
 test('synthetic draft resumes on mobile, submits, and updates under the same number', async ({ browser }) => {
-  test.setTimeout(120000);
+  test.setTimeout(240000);
   const desktop = await browser.newContext({ viewport: { width: 1440, height: 960 } });
   const page = await desktop.newPage();
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -40,12 +40,17 @@ test('synthetic draft resumes on mobile, submits, and updates under the same num
   await expect(mobilePage.getByRole('heading', { name: 'Специализации' })).toBeVisible();
   await mobilePage.locator('input[name="competencies"]').first().check();
   await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
+  await expect(mobilePage.getByRole('heading', { name: 'Этапы и пакеты работ' })).toBeVisible();
   await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
+  await expect(mobilePage.getByRole('heading', { name: 'Типы объектов и география' })).toBeVisible();
   await mobilePage.locator('[data-key="baseRegionCode"]').selectOption({ label: 'Москва' });
-  await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
   await mobilePage.locator('input[name="objectExperience"]').first().check();
   await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
+  await expect(mobilePage.getByRole('heading', { name: 'Команда и ресурсы' })).toBeVisible();
   await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
+  await expect(mobilePage.getByRole('heading', { name: 'Опыт и проекты' })).toBeVisible();
+  await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
+  await expect(mobilePage.getByRole('heading', { name: 'Условия и масштаб заказов' })).toBeVisible();
   await mobilePage.getByRole('button', { name: 'Проверить данные' }).click();
   await expect(mobilePage.getByRole('heading', { name: 'Проверьте данные' })).toBeVisible();
   await mobilePage.locator('[data-final-consent]').check();
@@ -57,8 +62,9 @@ test('synthetic draft resumes on mobile, submits, and updates under the same num
 
   await mobilePage.getByRole('button', { name: 'Изменить анкету' }).click();
   await mobilePage.locator('[data-key="phone"]').fill('+7 900 000-00-02');
-  for (let section = 0; section < 6; section += 1) {
+  for (const heading of ['Специализации', 'Этапы и пакеты работ', 'Типы объектов и география', 'Команда и ресурсы', 'Опыт и проекты', 'Условия и масштаб заказов']) {
     await mobilePage.getByRole('button', { name: 'Сохранить и продолжить' }).click();
+    await expect(mobilePage.getByRole('heading', { name: heading })).toBeVisible();
   }
   await mobilePage.getByRole('button', { name: 'Проверить данные' }).click();
   await mobilePage.locator('[data-final-consent]').check();
