@@ -54,7 +54,14 @@ test('synthetic draft resumes on mobile, submits, and updates under the same num
   await mobilePage.getByRole('button', { name: 'Проверить данные' }).click();
   await expect(mobilePage.getByRole('heading', { name: 'Проверьте данные' })).toBeVisible();
   await mobilePage.locator('[data-final-consent]').check();
+  const submitResponseWait = mobilePage.waitForResponse(response => response.url().includes('/submit') && response.request().method() === 'POST', { timeout: 10000 }).catch(() => null);
   await mobilePage.getByRole('button', { name: 'Отправить анкету на рассмотрение' }).click();
+  const submitResponse = await submitResponseWait;
+  console.log(`Mobile final submit returned ${submitResponse ? `HTTP ${submitResponse.status()}` : 'no HTTP request'}`);
+  if (submitResponse && !submitResponse.ok()) console.log(`Mobile final submit error: ${(await submitResponse.json().catch(() => ({}))).error || 'unknown'}`);
+  await mobilePage.waitForTimeout(250);
+  const submitMessage = await mobilePage.locator('#participantIntake [data-message]').textContent();
+  if (submitMessage) console.log(`Mobile final submit message: ${submitMessage}`);
   const numberLine = mobilePage.getByText(/Анкета № MAL-P-26-[0-9a-f]{16} получена/i);
   await expect(numberLine).toBeVisible();
   const publicNumber = (await numberLine.textContent()).match(/MAL-P-26-[0-9a-f]{16}/i)[0];
