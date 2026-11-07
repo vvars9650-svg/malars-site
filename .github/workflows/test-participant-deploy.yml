@@ -156,7 +156,7 @@ jobs:
             sleep 5
           done
           curl --fail --silent --show-error "$origin/index.html?verify=$GITHUB_SHA" | grep -q '20261107-test-5'
-          curl --fail --silent --show-error "$origin/participant-flow.js?verify=$GITHUB_SHA" | grep -q 'Уровень 1 из 2'
+          curl --fail --silent --show-error "$origin/participant-flow.js?verify=$GITHUB_SHA" | grep -q 'уровень 1 из 2'
           echo 'TEST API and versioned intake assets are live.'
       - name: Verify TEST CORS routes and foreign-origin denial
         shell: bash
