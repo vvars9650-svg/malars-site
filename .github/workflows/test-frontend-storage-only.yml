@@ -1,13 +1,8 @@
 name: MALARS TEST frontend only — Object Storage
 
-# First publish runs on installing this workflow. Future releases use Run workflow.
+# Releases are on demand: GitHub Actions -> Run workflow (branch: main).
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/test-frontend-storage-only.yml
 
 permissions:
   contents: read
