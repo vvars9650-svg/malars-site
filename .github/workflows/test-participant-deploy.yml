@@ -17,7 +17,7 @@ concurrency:
 jobs:
   deploy-test:
     if: github.ref == 'refs/heads/codex/participant-intake-ydb'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: malars-test
     env:
