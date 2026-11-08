@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / ".local-artifacts" / "test-frontend"
 API_BASE_URL = "https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net"
 TEST_ORIGIN = "https://malars-test-frontend-vl-061126-01.website.yandexcloud.net"
-BUILD_TAG = "20261107-test-5"
+BUILD_TAG = "20261108-test-6"
 
 
 RUNTIME = r"""(() => {
