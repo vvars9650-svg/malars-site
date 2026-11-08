@@ -7,6 +7,9 @@ test('synthetic draft resumes on mobile, submits, and updates under the same num
   const desktop = await browser.newContext({ viewport: { width: 1440, height: 960 } });
   const page = await desktop.newPage();
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  // Regression guard: a successful form is not acceptable if the site CSS is missing.
+  await expect(page.locator('.hero-card')).toHaveCSS('background-color', 'rgb(16, 20, 15)');
+  await expect(page.locator('.brand').first()).toHaveCSS('display', 'flex');
   await expect(page.getByRole('heading', { name: 'Коротко познакомимся' })).toBeVisible();
   await page.locator('[data-key="displayName"]').fill('Синтетический специалист');
   await page.getByRole('radio', { name: 'Самостоятельно' }).check();
@@ -23,6 +26,8 @@ test('synthetic draft resumes on mobile, submits, and updates under the same num
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const mobilePage = await mobile.newPage();
   await mobilePage.goto(resumeUrl, { waitUntil: 'networkidle' });
+  await expect(mobilePage.locator('.hero-card')).toHaveCSS('background-color', 'rgb(16, 20, 15)');
+  await expect(mobilePage.locator('.brand').first()).toHaveCSS('display', 'flex');
   await expect(mobilePage.getByRole('heading', { name: /Черновик № MAL-P-26-/ })).toBeVisible();
   await mobilePage.getByRole('button', { name: 'Продолжить сейчас' }).click();
   await expect(mobilePage.getByRole('heading', { name: 'Идентификация и контакты' })).toBeVisible();
