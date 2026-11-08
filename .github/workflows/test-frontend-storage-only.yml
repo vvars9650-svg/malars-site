@@ -1,0 +1,193 @@
+name: MALARS TEST frontend only — Object Storage
+
+# First publish runs on installing this workflow. Future releases use Run workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test-frontend-storage-only.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: malars-test-frontend-static
+  cancel-in-progress: false
+
+jobs:
+  publish-static-test:
+    if: github.ref == 'refs/heads/main'
+    environment: malars-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SOURCE_REF: work/malars-local-preview-20261108
+      TEST_BUCKET: malars-test-frontend-vl-061126-01
+      TEST_ORIGIN: https://malars-test-frontend-vl-061126-01.website.yandexcloud.net
+      YC_OIDC_TARGET_SERVICE_ACCOUNT_ID: ajes8qkmdkn775e4i7d1
+      OIDC_AUDIENCE: https://github.com/vvars9650-svg
+      OIDC_SUBJECT: repo:vvars9650-svg@315589829/malars-site@1348651215:environment:malars-test
+    steps:
+      - name: Checkout approved frontend branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/malars-local-preview-20261108
+          persist-credentials: false
+      - name: Verify source branch and record commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "$SOURCE_REF"
+          test -z "$(git status --porcelain)"
+          sha="$(git rev-parse HEAD)"
+          echo "SOURCE_SHA=$sha" >> "$GITHUB_ENV"
+          git diff --check
+          echo "TEST frontend from $SOURCE_REF @ $sha"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build isolated static files and cache-bust by commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python backend/deploy/build_test_frontend.py
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          root = Path(".local-artifacts/test-frontend")
+          html = (root / "index.html").read_text(encoding="utf-8")
+          match = re.search(r"styles\.css\?v=([a-zA-Z0-9._-]+)", html)
+          if not match:
+              raise SystemExit("Missing TEST CSS version tag")
+          old = match.group(1)
+          new = "static-" + os.environ["SOURCE_SHA"][:12]
+          for name in ("index.html", "script.js"):
+              path = root / name
+              path.write_text(path.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
+          path = root / "index.html"
+          html = path.read_text(encoding="utf-8")
+          marker = '<meta name="malars-test-build-sha" content="' + os.environ["SOURCE_SHA"] + '">'
+          if "<head>" not in html: raise SystemExit("Missing HTML head")
+          path.write_text(html.replace("<head>", "<head>\n  " + marker, 1), encoding="utf-8")
+          PY
+          for asset in index.html styles.css participant-flow.js script.js test-config.js; do
+            test -s ".local-artifacts/test-frontend/$asset"
+          done
+          node --check .local-artifacts/test-frontend/participant-flow.js
+          node --check .local-artifacts/test-frontend/script.js
+          node --check .local-artifacts/test-frontend/test-api-adapter.js
+          echo "PASS: frontend build and syntax"
+
+      - name: Obtain temporary TEST Object Storage credentials
+        shell: node {0}
+        run: |
+          const fs = require('node:fs');
+          const env = process.env;
+          const mask = value => {
+            if (!value) throw new Error('Missing OIDC value');
+            process.stdout.write(`::add-mask::${value}\n`);
+            return value;
+          };
+          const request = async (url, options = {}) => {
+            const response = await fetch(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(30000) });
+            if (!response.ok) throw new Error(`Credential exchange failed with HTTP ${response.status}`);
+            return response.json();
+          };
+          async function main() {
+            mask(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN);
+            const oidcUrl = new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);
+            oidcUrl.searchParams.set('audience', env.OIDC_AUDIENCE);
+            const oidc = await request(oidcUrl, {
+              headers: { Authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+            });
+            const jwt = mask(oidc.value);
+            const claims = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url'));
+            for (const [key, expected] of Object.entries({
+              iss: 'https://token.actions.githubusercontent.com', aud: env.OIDC_AUDIENCE,
+              sub: env.OIDC_SUBJECT, repository_id: '1348651215',
+              ref: 'refs/heads/main',
+            })) {
+              if (claims[key] !== expected) throw new Error(`OIDC claim mismatch: ${key}`);
+            }
+            const exchange = await request('https://auth.yandex.cloud/oauth/token', {
+              method: 'POST',
+              body: new URLSearchParams({
+                grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+                requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+                audience: env.YC_OIDC_TARGET_SERVICE_ACCOUNT_ID,
+                subject_token: jwt,
+                subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+              }),
+            });
+            const iamToken = mask(exchange.access_token);
+            fs.appendFileSync(env.GITHUB_ENV, `YC_IAM_TOKEN=${iamToken}\n`);
+            console.log('Temporary TEST storage identity ready; repository and main ref verified.');
+          }
+          main().catch(error => {
+            console.error(error.message.replace(/Bearer\s+\S+/gi, '[REDACTED]'));
+            process.exitCode = 1;
+          });
+      - name: Install Yandex Cloud CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+      - name: Upload only generated frontend assets to TEST Object Storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .local-artifacts/test-frontend
+          count=0
+          while IFS= read -r -d '' file; do
+            key="$(printf '%s' "$file" | cut -c3-)"
+            cache="public,max-age=31536000,immutable"
+            case "$key" in index.html|legal/*) cache="no-cache" ;; esac
+            case "$key" in
+              *.css) mime="text/css" ;;
+              *.js) mime="application/javascript" ;;
+              *.html) mime="text/html" ;;
+              *.svg) mime="image/svg+xml" ;;
+              *) mime="$(file --brief --mime-type "$file")" ;;
+            esac
+            yc storage s3api put-object \
+              --bucket "$TEST_BUCKET" --key "$key" --body "$file" \
+              --content-type "$mime" --cache-control "$cache" >/dev/null
+            count=$((count + 1))
+          done < <(find . -type f -print0)
+          test "$count" -ge 8
+          echo "PASS: published $count static assets in the TEST-only bucket"
+      - name: Verify TEST site bytes, MIME, and exact source SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .local-artifacts/test-frontend
+          for asset in index.html styles.css participant-flow.js script.js test-config.js; do
+            headers="$RUNNER_TEMP/malars-static-headers"
+            body="$RUNNER_TEMP/malars-static-body"
+            curl --fail --silent --show-error --location \
+              --dump-header "$headers" --output "$body" \
+              "$TEST_ORIGIN/$asset?verify=$SOURCE_SHA"
+            cmp --silent "$asset" "$body" || {
+              echo "FAIL: public $asset differs from checked-out source" >&2
+              exit 1
+            }
+            case "$asset" in
+              *.css) mime="text/css" ;;
+              *.js) mime="application/javascript" ;;
+              *) mime="text/html" ;;
+            esac
+            tr -d '\r' < "$headers" | grep -Eqi "^content-type:[[:space:]]*$mime([;[:space:]]|$)" || {
+              echo "FAIL: wrong MIME for $asset (expected $mime)" >&2
+              exit 1
+            }
+          done
+          grep -Fq "$SOURCE_SHA" index.html
+          echo "PASS: TEST frontend bytes and MIME match $SOURCE_SHA"
+          echo "TEST URL: $TEST_ORIGIN/"
