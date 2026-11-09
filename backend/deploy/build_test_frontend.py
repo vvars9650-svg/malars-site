@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / ".local-artifacts" / "test-frontend"
 API_BASE_URL = "https://d5dmc1cn4hgv2sulpdpq.d8epmcec.apigw.yandexcloud.net"
 TEST_ORIGIN = "https://malars-test-frontend-vl-061126-01.website.yandexcloud.net"
-BUILD_TAG = "20261108-test-6"
+BUILD_TAG = "20261109-local-specializations-2"
 
 
 RUNTIME = r"""(() => {
@@ -100,7 +100,7 @@ def main() -> None:
     index = index.replace('  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n', "")
     index = index.replace('  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">\n', "")
     index = index.replace('styles.css?v=2', f'styles.css?v={BUILD_TAG}')
-    index = index.replace('<script src="script.js?v=3"></script>', f'<script src="test-config.js?v={BUILD_TAG}"></script>\n<script src="test-runtime.js?v={BUILD_TAG}"></script>\n<script src="test-api-adapter.js?v={BUILD_TAG}"></script>\n<script src="participant-flow.js?v={BUILD_TAG}"></script>\n<script src="script.js?v={BUILD_TAG}"></script>')
+    index = index.replace('<script src="script.js?v=3"></script>', f'<script src="test-config.js?v={BUILD_TAG}"></script>\n<script src="test-runtime.js?v={BUILD_TAG}"></script>\n<script src="test-api-adapter.js?v={BUILD_TAG}"></script>\n<script src="specialization-catalog.js?v={BUILD_TAG}"></script>\n<script src="specializations.js?v={BUILD_TAG}"></script>\n<script src="participant-flow.js?v={BUILD_TAG}"></script>\n<script src="script.js?v={BUILD_TAG}"></script>')
     (OUTPUT / "index.html").write_text(index, encoding="utf-8")
     script = (OUTPUT / "script.js").read_text(encoding="utf-8")
     script = script.replace('20260828-2', BUILD_TAG).replace('20260828-3', BUILD_TAG).replace('20260827-1', BUILD_TAG)
@@ -171,6 +171,8 @@ def main() -> None:
     (OUTPUT / "test-runtime.js").write_text(RUNTIME, encoding="utf-8")
     shutil.copy2(ROOT / "test-frontend" / "test-api-adapter.js", OUTPUT / "test-api-adapter.js")
     shutil.copy2(ROOT / "test-frontend" / "participant-flow.js", OUTPUT / "participant-flow.js")
+    for name in ("specialization-catalog.js", "specializations.js"):
+        shutil.copy2(ROOT / "test-frontend" / name, OUTPUT / name)
     with (OUTPUT / "styles.css").open("a", encoding="utf-8") as css_out:
         css_out.write("\n" + (ROOT / "test-frontend" / "participant-flow.css").read_text(encoding="utf-8"))
 

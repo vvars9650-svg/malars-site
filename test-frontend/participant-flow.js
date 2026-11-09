@@ -4,7 +4,9 @@
   const CITY_CACHE_KEY = "malars-test-russia-cities-v1";
   const CONSENT = "CONSENT-PARTICIPANT-PD-1.0";
   const consentText = "Согласен(на) на обработку данных для предварительного рассмотрения анкеты в тестовом контуре МАЛАРС. Использую только вымышленные данные.";
-  let data = {};
+  // Temporary opt-in fixture, enabled only by the generated localhost config.
+  const localPrefill = window.MALARS_LOCAL_PREFILL === true && ['localhost','127.0.0.1'].includes(location.hostname) && API === location.origin;
+  let data = localPrefill ? {...window.MALARS_LOCAL_FIXTURE} : {};
   let intakeId = "";
   let token = "";
   let number = "";
@@ -21,8 +23,7 @@
       ["contactName", "Контактное лицо", "text"], ["email", "Email", "email"], ["phone", "Контактный телефон (можно изменить)", "tel"],
       ["contactChannel", "Предпочитаемый способ связи", "select", ["Звонок", "Telegram", "WhatsApp", "Email"]],
     ]],
-    ["Специализации", [["competencies", "Виды работ (можно выбрать несколько)", "works"], ["otherWorks", "Другие работы", "text"], ["executionMethods", "Как выполняете работы?", "checks", ["Собственными силами", "Своими силами и с партнёрами", "Через субподряд"]], ["supply", "Также можем поставлять материалы или оборудование", "check"]]],
-    ["Этапы и пакеты работ", [["stages", "Какие этапы берёте?", "checks", ["Обследование", "Проектирование", "Комплектация и поставка", "Изготовление и сборка", "Работы на объекте: строительство, монтаж, демонтаж, отделка", "Программирование и интеграция", "ПНР и испытания", "Сервис и ремонт"]], ["scopes", "Масштаб работ", "checks", ["Отдельная работа", "Несколько связанных работ", "Отдельная система или раздел под ключ"]], ["turnkeyDetails", "Что именно можете закрыть и с чьим участием? Пример", "textarea"]]],
+    ["Специализации", [["competencies", "Виды работ (можно выбрать несколько)", "works"], ["otherWorks", "Другие работы", "text"], ["executionMethods", "Как выполняете работы?", "checks", ["Собственными силами", "Своими силами и с партнёрами", "Через субподряд"]], ["supply", "Также можем поставлять материалы или оборудование", "check"], ["scopes", "Масштаб работ", "checks", ["Отдельная работа", "Несколько связанных работ", "Отдельная система или раздел под ключ"]], ["turnkeyDetails", "Что именно можете закрыть и с чьим участием? Пример (необязательно)", "textarea"]]],
     ["Типы объектов и география", [["objectExperience", "Есть опыт на объектах", "objects"], ["objectReady", "Готовы выполнять работы на объектах", "objects"], ["baseRegionCode", "Регион базирования", "regions-select"], ["geographyMode", "География работы", "select", ["Город и рядом", "Регион", "Выбранные регионы", "Вся Россия"]], ["regions", "Дополнительные регионы работы", "regions"], ["travel", "Командировки", "select", ["Да", "По согласованию", "Нет"]], ["remote", "Дистанционная работа", "select", ["Да", "Нет", "Зависит от задачи"]], ["limits", "Ограничения по географии или объектам", "text"]]],
     ["Команда и ресурсы", [["teamSize", "Основная команда", "select", ["1 человек", "2–5", "6–15", "16–30", "31–50", "51–100", "100+"]], ["crewCount", "Количество бригад", "number"], ["teamLeads", "Руководители бригад", "number"], ["canExpand", "Возможность усиления", "select", ["Своя команда", "Партнёры", "Нет"]], ["parallelProjects", "Одновременные объекты", "number"], ["availability", "Когда готовы приступить к работе?", "select", ["Сейчас", "Через 2–4 недели", "По согласованию", "Пока заняты"]], ["resources", "Ресурсы", "checks", ["Инструмент", "Измерительные приборы", "Транспорт", "Спецтехника", "Мастерская", "Своё оборудование", "Аренда оборудования"]], ["comment", "Комментарий о команде и ресурсах", "textarea"]]],
     ["Опыт и проекты", [["experienceYears", "Стаж", "select", ["До года", "1–3 года", "3–5 лет", "5–10 лет", "10+ лет"]], ["hasProjects", "Есть завершённые проекты?", "select", ["Да", "Нет"]], ["role", "Ваша роль", "checks", ["Исполнитель", "Бригада", "Субподрядчик", "Генподрядчик", "Проектировщик"]], ["workExamples", "1–3 примера: тип объекта, работы, роль, год. Если портфолио нет — опишите опыт", "textarea"], ["portfolioUrl", "Сайт или открытое портфолио (необязательно)", "url"], ["recommendations", "Рекомендации или публичные ссылки (необязательно)", "textarea"], ["credentials", "Декларируемые СРО, лицензии, сертификаты (для последующей проверки)", "text"]]],
@@ -36,7 +37,20 @@
   host.id = "participantIntake";
   host.className = "form-panel participant-intake";
   root.before(host);
-  const statusLine = (m, bad = false) => { const x = host.querySelector("[data-message]"); if (x) { x.textContent = m; x.dataset.error = bad ? "true" : "false"; } };
+  const statusLine = (m, bad = false) => {
+    const x=host.querySelector('[data-message]');
+    host.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+    host.querySelectorAll('[aria-invalid="true"]').forEach(el=>el.removeAttribute('aria-invalid'));
+    if(!x)return;
+    x.textContent=m; x.dataset.error=bad?'true':'false';x.setAttribute('role',bad?'alert':'status');x.setAttribute('aria-live',bad?'assertive':'polite');
+    if(!bad)return;
+    const mapping=[[/обращаться|контактное лицо/i,'[data-key="displayName"],[data-key="contactName"]'],[/формат работы/i,'input[name="workFormat"]'],[/направлен/i,'[data-profile-direction]'],[/город/i,'[data-key="baseCity"]'],[/телефон/i,'[data-key="phone"]'],[/email/i,'[data-key="email"]'],[/ИНН/i,'[data-key="inn"]'],[/соглас/i,'[data-key="consent"],[data-final-consent]'],[/как выполняете/i,'input[name="executionMethods"]'],[/масштаб/i,'input[name="scopes"]'],[/что именно/i,'[data-key="turnkeyDetails"]'],[/типам объектов/i,'input[name="objectExperience"],input[name="objectReady"]']];
+    const selector=mapping.find(([pattern])=>pattern.test(m))?.[1];
+    const inputs=selector?[...host.querySelectorAll(selector)]:[...host.querySelectorAll('input:invalid,select:invalid,textarea:invalid')];
+    for(const input of inputs){input.setAttribute('aria-invalid','true');(input.closest('fieldset,.intake-field,.city-field,.consent') || input.closest('label') || input).classList.add('field-error');}
+    const target=host.querySelector('.field-error') || x;
+    target.scrollIntoView({behavior:'smooth',block:'center'});
+  };
   const send = async (path, method, body, headers = {}) => {
     const res = await fetch(API + path, {method, cache:"no-store", headers:{"Content-Type":"application/json", ...headers}, body:body == null ? undefined : JSON.stringify(body)});
     const json = await res.json().catch(() => ({}));
@@ -46,19 +60,39 @@
   };
   const tokenHeaders = () => ({"X-Participant-Token": token, "X-Intake-Revision": String(revision)});
   const draftPath = () => `/api/participant-drafts/${encodeURIComponent(intakeId)}`;
+  let scrollGeneration = 0;
+  host.addEventListener('change',()=>{scrollGeneration++;});
+  function scrollToFormStart() {
+    const generation=++scrollGeneration;
+    const align=()=>{
+      if(generation!==scrollGeneration || !host.isConnected)return;
+      const header=document.querySelector('header');
+      const offset=(header?.getBoundingClientRect().height || 80)+16;
+      window.scrollTo({top:Math.max(0,host.getBoundingClientRect().top+window.scrollY-offset),behavior:'instant'});
+    };
+    requestAnimationFrame(()=>requestAnimationFrame(align));
+    setTimeout(align,120);
+    setTimeout(align,300);
+  }
   const renderStart = () => {
     const formats = ["Самостоятельно", "В составе бригады", "От имени компании"];
-    const cats = [...new Set((window.MALARS_TEST_DATA?.WORKS || []).map(x => x[1]))];
+    const catalog = window.MalarsSpecializationCatalog;
+    const selected = catalog?.directionsFor(data.mainCategories || [], window.MALARS_TEST_DATA?.WORKS || []) || [];
+    const profiles = catalog ? catalog.directions.map(([id, name]) => `<label class="intake-choice intake-profile"><input type="checkbox" data-profile-direction="${id}" ${selected.includes(id) ? 'checked' : ''}><span><strong role="heading" aria-level="3">${esc(name)}</strong><small>${esc(catalog.directionHints[id])}</small></span></label>`).join('') : '<p>Направления загружаются…</p>';
     host.innerHTML = `<div class="participant-intake-head"><p class="eyebrow">Анкета подрядчика · уровень 1 из 2</p><h2>Коротко познакомимся</h2><p>Это займёт около 1–2 минут.</p></div>
       <div class="intake-grid intake-start-grid"><label>Как к вам обращаться?<input data-key="displayName" autocomplete="organization" value="${esc(data.displayName)}" required></label>
       <fieldset><legend>Формат работы</legend>${formats.map(v=>choice("workFormat",v)).join("")}</fieldset>
-      <fieldset><legend>Основные направления работ</legend><div class="intake-checks">${cats.map(v=>choice("mainCategories",v,"checkbox")).join("")}</div><label>Другое<input data-key="otherWorks" value="${esc(data.otherWorks)}"></label></fieldset>
+      <fieldset class="intake-profiles"><legend>Ваши направления</legend><p class="field-hint">Выберите одно или несколько. Детали уточним дальше.</p><div class="intake-profile-list">${profiles}</div><label>Другое<input data-key="otherWorks" value="${esc(data.otherWorks)}"></label></fieldset>
       <div class="city-field"><label for="baseCitySearch">Город базирования</label><input id="baseCitySearch" data-key="baseCity" role="combobox" aria-autocomplete="list" aria-controls="baseCityOptions" aria-expanded="false" autocomplete="off" placeholder="Начните вводить город" value="${esc(cityDisplayName(data.baseCity))}" required><div id="baseCityOptions" class="city-suggestions" role="listbox" hidden></div></div>
       <label>Контактный телефон<input data-key="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (900) 000-00-00" value="${esc(data.phone)}" required></label>
       <label class="consent intake-consent"><input data-key="consent" type="checkbox" ${data.consent ? "checked" : ""}><span>${esc(consentText)} Версия ${CONSENT}. <a href="legal/participant-consent.html" target="_blank" rel="noopener">Текст TEST-согласия</a></span></label></div>
       <div class="intake-actions"><button class="button button-secondary" data-action="continue">Продолжить анкету</button></div><p data-message role="status" aria-live="polite"></p>`;
     bindInputs();
+    host.querySelectorAll('[data-profile-direction]').forEach(input => input.addEventListener('change', () => {
+      data.mainCategories = catalog.changeDirection(data.mainCategories || [], input.dataset.profileDirection, input.checked, window.MALARS_TEST_DATA?.WORKS || []);
+    }));
     setupCityAutocomplete();
+    scrollToFormStart();
   };
   function choice(key, val, type="radio", label=val) { return `<label class="intake-choice"><input type="${type}" name="${key}" value="${esc(val)}" ${type === "radio" && data[key]===val || type === "checkbox" && (data[key]||[]).includes(val) ? "checked" : ""}><span>${esc(label)}</span></label>`; }
   const cityDisplayName = value => String(value || "").replace(/\s*\([^)]*\)/g, "").trim();
@@ -106,10 +140,14 @@
   const normalizeLocation = value => String(value || "").toLocaleLowerCase("ru").replace(/ё/g, "е").replace(/[—–-]/g, " ").replace(/[()]/g, " ").replace(/\s+/g, " ").trim();
 
   async function loadCityOptions() {
+    // Do not cache cities before the core region codes have loaded.
+    if (!window.MALARS_TEST_DATA?.REGIONS?.length) {
+      await new Promise(resolve => document.addEventListener('malars:core-ready', resolve, {once:true}));
+    }
     let areas;
     try {
       const cached = JSON.parse(localStorage.getItem(CITY_CACHE_KEY) || "null");
-      if (cached?.savedAt && Date.now() - cached.savedAt < 2592000000 && Array.isArray(cached.entries)) {
+      if (cached?.savedAt && Date.now() - cached.savedAt < 2592000000 && Array.isArray(cached.entries) && cached.entries.some(item => item.regionCode)) {
         cityOptions = cached.entries;
         cityOptionsReady = true;
         return;
@@ -215,15 +253,25 @@
     });
   }
   function renderMessage(kind) {
+    scrollToFormStart();
     const link = `${location.origin}${location.pathname}#intake=${encodeURIComponent(intakeId)}&token=${encodeURIComponent(token)}`;
     host.innerHTML = `<h2>${kind === "saved" ? `Черновик № ${esc(number)} сохранён` : kind === "submitted" ? `Анкета № ${esc(number)} получена` : `Анкета № ${esc(number)} обновлена`}</h2>
       <p>${kind === "saved" ? "Продолжите сейчас или вернитесь позже по персональной ссылке. Ссылка даёт доступ к анкете — не передавайте её другим. Она действует 30 дней." : "Спасибо! МАЛАРС предварительно изучит профиль и при подходящем опыте свяжется для знакомства. Отправка не означает автоматического принятия в сеть и не гарантирует заказов."}</p>
       <p>Номер — только идентификатор, он не открывает анкету. Ревизия ${revision}; обновлено ${new Date().toLocaleString("ru-RU")}.</p>
       <div class="intake-actions">${kind === "saved" ? '<button class="button" data-action="continue">Продолжить сейчас</button>' : '<button class="button" data-action="edit">Изменить анкету</button>'}<button class="button button-secondary" data-action="copy-link">Скопировать ссылку</button><button class="button button-secondary" data-action="copy-number">Скопировать номер</button></div><p data-message role="status" aria-live="polite"></p>`;
+    appendSpecializationNotice();
     host.querySelector('[data-action="continue"]')?.addEventListener("click", () => {section=0;renderSection();});
     host.querySelector('[data-action="edit"]')?.addEventListener("click", () => {section=0;renderSection();});
     host.querySelector('[data-action="copy-link"]')?.addEventListener("click", async()=>{await navigator.clipboard.writeText(`${location.origin}${location.pathname}#intake=${encodeURIComponent(intakeId)}&token=${encodeURIComponent(token)}`);statusLine("Персональная ссылка скопирована.");});
     host.querySelector('[data-action="copy-number"]')?.addEventListener("click", async()=>{await navigator.clipboard.writeText(number);statusLine("Номер скопирован.");});
+  }
+  function appendSpecializationNotice() {
+    if (!window.MalarsSpecializations) return;
+    const note = document.createElement('aside');
+    note.className = 'spec-notice';
+    note.setAttribute('role', 'note');
+    note.textContent = window.MalarsSpecializations.summary(intakeId);
+    host.append(note);
   }
   function field(item) {
     const [key,,type] = item;
@@ -232,15 +280,8 @@
   }
   function renderField([key,label,type,opts]) {
     if(type==="works") {
-      const groups = new Map();
-      for (const work of window.MALARS_TEST_DATA?.WORKS || []) {
-        if (!groups.has(work[1])) groups.set(work[1], []);
-        groups.get(work[1]).push(work);
-      }
-      return `<fieldset class="intake-works"><legend>${esc(label)}</legend><div class="work-tree">${[...groups].map(([name, works]) => {
-        const selected = works.filter(x => (data.competencies || []).includes(x[2]+" — "+x[3])).length;
-        return `<details class="work-group" ${selected || (data.mainCategories || []).includes(name) ? "open" : ""}><summary>${esc(name)}<small data-work-count>${selected ? `Выбрано: ${selected}` : ""}</small></summary><div class="work-options">${works.map(x => choice("competencies",x[2]+" — "+x[3],"checkbox",x[3])).join("")}</div></details>`;
-      }).join("")}</div></fieldset>`;
+      if (window.MalarsSpecializations) return '<div data-specializations></div>';
+      return '<p role="alert">Не удалось загрузить справочник специализаций. Обновите страницу. Прежние выбранные значения сохранены.</p>';
     }
     if(type==="objects") return `<fieldset><legend>${esc(label)}</legend><div class="intake-checks">${(window.MALARS_TEST_DATA?.OBJECT_TYPES||[]).map(x=>choice(key,x[1],"checkbox")).join("")}</div></fieldset>`;
     if(type==="regions") return `<fieldset class="intake-regions"><legend>${esc(label)}</legend><p class="field-hint">Выберите дополнительные регионы, в которых выполняете работы.</p><label class="region-search-label">Поиск региона<input type="search" data-region-search placeholder="Начните вводить название региона" autocomplete="off"></label><div class="region-options">${(window.MALARS_TEST_DATA?.REGIONS||[]).filter(x=>x[0]!=="RU-ALL").map(x=>choice(key,x[0],"checkbox",x[1])).join("")}</div><p data-region-empty hidden>Регионы не найдены</p></fieldset>`;
@@ -252,9 +293,9 @@
   }
   function sectionFields(fields) {
     const byKey = key => { const item = fields.find(x=>x[0]===key); return item ? field(item) : ""; };
-    if (section===1) return `<div class="intake-stack">${["competencies","otherWorks","supply","executionMethods"].map(byKey).join("")}</div>`;
-    if (section===5) return `<div class="intake-grid intake-detail-grid">${["experienceYears","hasProjects","role","workExamples","portfolioUrl","credentials","recommendations"].map(byKey).join("")}</div>`;
-    if (section===3) return `<div class="intake-grid intake-detail-grid">${["objectExperience","objectReady"].map(byKey).join("")}</div><div class="intake-geography"><div class="intake-stack">${["baseRegionCode","geographyMode","regions"].map(byKey).join("")}</div><div class="intake-stack">${["travel","remote","limits"].map(byKey).join("")}</div></div>`;
+    if (section===1) return `<div class="intake-stack">${["competencies","executionMethods","scopes","turnkeyDetails"].map(byKey).join("")}</div>`;
+    if (section===4) return `<div class="intake-grid intake-detail-grid">${["experienceYears","hasProjects","role","workExamples","portfolioUrl","credentials","recommendations"].map(byKey).join("")}</div>`;
+    if (section===2) return `<div class="intake-grid intake-detail-grid">${["objectExperience","objectReady"].map(byKey).join("")}</div><div class="intake-geography"><div class="intake-stack">${["baseRegionCode","geographyMode","regions"].map(byKey).join("")}</div><div class="intake-stack">${["travel","remote","limits"].map(byKey).join("")}</div></div>`;
     return `<div class="intake-grid intake-detail-grid">${fields.map(field).join("")}</div>`;
   }
   function bindRegionSearch() {
@@ -267,26 +308,26 @@
       host.querySelector("[data-region-empty]").hidden=options.some(label=>!label.hidden);
     });
   }
-  function bindWorkCounts() {
-    host.querySelectorAll(".work-group").forEach(group=>group.addEventListener("change",()=>{
-      const count=group.querySelectorAll('input:checked').length;
-      group.querySelector("[data-work-count]").textContent=count ? `Выбрано: ${count}` : "";
-    }));
-  }
   function renderSection() {
+    scrollToFormStart();
     if(section===0){if(!data.contactName)data.contactName=data.displayName||"";if(["ООО","АО","ПАО","ИП"].includes(data.legalForm)&&!data.companyName)data.companyName=data.displayName||"";}
     const [title,allFields]=sections[section];
     const fields = visibleFields(section, allFields);
-    host.innerHTML=`<p class="eyebrow">Уровень 2 из 2 · раздел ${section+1} из 7</p><div class="intake-progress" aria-label="Прогресс анкеты"><span style="width:${Math.round((section+1)/7*100)}%"></span></div><h2>${esc(title)}</h2>${sectionFields(fields)}<div class="intake-actions"><button class="button button-secondary" data-action="back">Назад</button><button class="button" data-action="next">${section===6?"Проверить данные":"Сохранить и продолжить"}</button></div><p data-message role="status" aria-live="polite"></p>`;
+    host.innerHTML=`<p class="eyebrow">Уровень 2 из 2 · раздел ${section+1} из ${sections.length}</p><div class="intake-progress" aria-label="Прогресс анкеты"><span style="width:${Math.round((section+1)/sections.length*100)}%"></span></div><h2>${esc(title)}</h2>${sectionFields(fields)}<div class="intake-actions"><button class="button button-secondary" data-action="back">Назад</button><button class="button" data-action="next">${section===sections.length-1?"Проверить данные":"Сохранить и продолжить"}</button></div><p data-message role="status" aria-live="polite"></p>`;
     bindInputs();
     bindRegionSearch();
-    bindWorkCounts();
+    if (section === 1) {
+      const editor = host.querySelector('[data-specializations]');
+      if (editor && window.MalarsSpecializations) window.MalarsSpecializations.mount(editor, data, intakeId, window.MALARS_TEST_DATA?.WORKS || []);
+      host.querySelector('[data-action="next"]').textContent = 'Продолжить (детализация локально)';
+    }
     host.querySelector('[data-action="back"]').onclick=()=>{capture();if(section===0){renderStart();return;}section--;renderSection();};
-    host.querySelector('[data-action="next"]').onclick=async()=>{capture();if(section===0&&!validateRequired())return;if(!await saveAnswers())return;if(section===6)renderReview();else{section++;renderSection();}};
+    host.querySelector('[data-action="next"]').onclick=async()=>{capture();if(section===0&&!validateRequired())return;if(section===1){const error=(!(data.competencies||[]).length?'Выберите хотя бы одну специализацию в выбранных подсистемах.':'') || window.MalarsSpecializations?.validate(intakeId) || (!(data.executionMethods||[]).length?'Укажите, как выполняете работы.':!(data.scopes||[]).length?'Выберите масштаб работ.':'');if(error){statusLine(error,true);host.querySelector('[data-specializations]')?.dispatchEvent(new CustomEvent('spec:invalid',{detail:{message:error}}));return;}}if(!await saveAnswers())return;if(section===sections.length-1)renderReview();else{section++;renderSection();}};
   }
   function visibleFields(index, fields) {
+    if(index===1) fields=fields.filter(([key])=>!["otherWorks","supply"].includes(key));
     if(index===0) fields=fields.filter(([key])=>!['contactName','phone'].includes(key));
-    return index===4 && data.workFormat === "Самостоятельно"
+    return index===3 && data.workFormat === "Самостоятельно"
       ? fields.filter(([key]) => !["crewCount","teamLeads","canExpand","parallelProjects"].includes(key))
       : fields;
   }
@@ -301,8 +342,8 @@
     else if(!isValidPhone(data.phone))error="Укажите корректный российский номер телефона в формате +7 (900) 000-00-00.";
     else if(!data.baseCity||!data.baseRegionCode)error="Выберите город базирования из списка.";
     else if(needsInn&&inn.length!==(["ООО","АО","ПАО"].includes(legal)?10:12))error=`Для выбранной формы нужен ИНН из ${["ООО","АО","ПАО"].includes(legal)?10:12} цифр.`;
-    else if(section===6&&!(data.competencies||[]).length)error="Выберите хотя бы одну специализацию.";
-    else if(section===6&&!(data.objectExperience||[]).length&&!(data.objectReady||[]).length)error="Укажите опыт или готовность по типам объектов.";
+    else if(section===sections.length-1&&!(data.competencies||[]).length)error="Выберите хотя бы одну специализацию.";
+    else if(section===sections.length-1&&!(data.objectExperience||[]).length&&!(data.objectReady||[]).length)error="Укажите опыт или готовность по типам объектов.";
     if(error){statusLine(error,true);const target=error.includes("email")?host.querySelector('[data-key="email"]'):error.includes("телефона")?host.querySelector('[data-key="phone"]'):error.includes("город")?host.querySelector('[data-key="baseCity"]'):null;const bad=target||[...form].find(x=>!x.value&&x.type!=="checkbox");bad?.focus();return false;}return true;
   }
 
@@ -318,7 +359,7 @@
     else if(!data.consent)error="Подтвердите согласие для продолжения.";
     if(error){
       statusLine(error,true);
-      const target=!data.displayName?.trim()?host.querySelector('[data-key="displayName"]'):!data.workFormat?host.querySelector('input[name="workFormat"]'):!(data.mainCategories||[]).length?host.querySelector('input[name="mainCategories"]'):!input?.value.trim()||input.dataset.citySelected!=="true"?input:!isValidPhone(data.phone)?host.querySelector('[data-key="phone"]'):host.querySelector('[data-key="consent"]');
+      const target=!data.displayName?.trim()?host.querySelector('[data-key="displayName"]'):!data.workFormat?host.querySelector('input[name="workFormat"]'):!(data.mainCategories||[]).length?host.querySelector('[data-profile-direction]'):!input?.value.trim()||input.dataset.citySelected!=="true"?input:!isValidPhone(data.phone)?host.querySelector('[data-key="phone"]'):host.querySelector('[data-key="consent"]');
       target?.focus();
       return false;
     }
@@ -330,13 +371,29 @@
     try {const r=await send(draftPath(),"PUT",{answers:data},tokenHeaders());revision=r.data.revision;number=r.data.public_number;status=r.data.status;return true;}
     catch(e){statusLine(e.status===409?"Черновик изменён в другом окне. Обновите страницу и продолжите с актуальной версией.":e.status===401?"Персональная ссылка истекла или недействительна. Свяжитесь с МАЛАРС, указав только номер анкеты.":"Не удалось сохранить изменения. Проверьте связь и повторите.",true);return false;}finally{busy=false;}
   }
+  function specializationIssue() {
+    return !(data.competencies||[]).length?'Выберите хотя бы одну специализацию в выбранных подсистемах.':window.MalarsSpecializations?.validate(intakeId) || (!(data.executionMethods||[]).length?'Укажите, как выполняете работы.':!(data.scopes||[]).length?'Выберите масштаб работ.':'');
+  }
+  function markReviewErrors() {
+    const issue=specializationIssue();
+    const edit=host.querySelector('[data-edit="1"]');
+    if(issue && edit) {
+      const card=edit.closest('.intake-review > div');card.classList.add('field-error');
+      const note=document.createElement('p');note.className='field-error-text';note.textContent=issue;card.append(note);
+      edit.textContent='Исправить раздел «Специализации»';edit.classList.add('review-error-button');
+    }
+  }
   function renderReview(){
-    host.innerHTML=`<p class="eyebrow">Проверка перед отправкой</p><h2>Проверьте данные</h2><p>Заполнено ${Object.keys(data).filter(k=>data[k]!==""&&data[k]!=null).length} полей. Можно вернуться в любой раздел и исправить ответы.</p><div class="intake-review">${sections.map(([title,allFields],i)=>{const fields=visibleFields(i,allFields);return `<div><strong>${i+1}. ${esc(title)}</strong><p>${fields.map(f=>`${esc(f[1])}: ${esc(Array.isArray(data[f[0]])?data[f[0]].join(", "):data[f[0]]||"—")}`).join(" · ")}</p><button class="button button-secondary" data-edit="${i}">Изменить раздел</button></div>`}).join("")}</div><label class="consent intake-consent"><input data-final-consent type="checkbox"><span>${esc(consentText)} Версия ${CONSENT}. <a href="legal/participant-consent.html" target="_blank" rel="noopener">Текст TEST-согласия</a></span></label><button class="button" data-action="submit">Отправить анкету на рассмотрение</button><p data-message role="status" aria-live="polite"></p>`;
-    host.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{section=Number(b.dataset.edit);renderSection();});
+    scrollToFormStart();
+    host.innerHTML=`<p class="eyebrow">Проверка перед отправкой</p><h2>Проверьте данные</h2><p>Заполнено ${Object.keys(data).filter(k=>data[k]!==""&&data[k]!=null).length} полей. Можно вернуться в любой раздел и исправить ответы.</p><div class="intake-review">${sections.map(([title,allFields],i)=>{const fields=visibleFields(i,allFields);return `<div><strong>${i+1}. ${esc(title)}</strong><p>${fields.map(f=>`${esc(f[1])}: ${esc(Array.isArray(data[f[0]])?data[f[0]].map(value=>f[0]==="competencies" && window.MalarsSpecializationCatalog ? window.MalarsSpecializationCatalog.displayValue(value,window.MALARS_TEST_DATA?.WORKS || []) : value).join(", "):data[f[0]]||"—")}`).join(" · ")}</p><button class="button button-secondary" data-edit="${i}">Изменить раздел</button></div>`}).join("")}</div><label class="consent intake-consent"><input data-final-consent type="checkbox"><span>${esc(consentText)} Версия ${CONSENT}. <a href="legal/participant-consent.html" target="_blank" rel="noopener">Текст TEST-согласия</a></span></label><button class="button" data-action="submit">Отправить анкету на рассмотрение</button><p data-message role="status" aria-live="polite"></p>`;
+    appendSpecializationNotice();
+    markReviewErrors();
+    host.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{section=Number(b.dataset.edit);renderSection();if(section===1 && specializationIssue()){const message=specializationIssue();statusLine(message,true);host.querySelector('[data-specializations]')?.dispatchEvent(new CustomEvent('spec:invalid',{detail:{message}}));}});
     host.querySelector('[data-action="submit"]').onclick=submit;
   }
   async function submit(){
     if(!host.querySelector("[data-final-consent]").checked){statusLine("Подтвердите согласие для тестовой отправки.",true);return;}
+    if(specializationIssue()){statusLine('Исправьте раздел 2 «Специализации». '+specializationIssue(),true);host.querySelector('[data-edit="1"]')?.closest('.intake-review > div')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
     if(!validateRequired())return;
     if(busy)return;busy=true;
     try {const r=await send(draftPath()+"/submit","POST",{answers:{...data,consent:true,consentVersion:CONSENT}},{...tokenHeaders()});revision=r.data.revision;number=r.data.public_number;status=r.data.status;data=r.data.answers;renderMessage(r.httpStatus===201?"submitted":"updated");}
