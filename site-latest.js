@@ -158,6 +158,7 @@
   }
 
   function initClientEnhancements() {
+    if (document.getElementById("clientForm")?.dataset.clientFlow) return;
     const phone = document.getElementById("clientPhone");
     const email = document.getElementById("clientEmail");
     if (phone) attachPhoneMask(phone);
@@ -618,6 +619,7 @@
   }
 
   function installClientSubmitHandler() {
+    if (document.getElementById("clientForm")?.dataset.clientFlow) return;
     const form = document.getElementById("clientForm");
     if (!form || typeof postJson !== "function") return;
 

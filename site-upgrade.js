@@ -142,6 +142,7 @@
   }
 
   function upgradeClientForm() {
+    if (document.getElementById("clientForm")?.dataset.clientFlow) return;
     const form = document.getElementById("clientForm");
     if (!form) return;
 
@@ -313,6 +314,7 @@
   }
 
   function initClientEnhancements() {
+    if (document.getElementById("clientForm")?.dataset.clientFlow) return;
     const phone = document.getElementById("clientPhone");
     const email = document.getElementById("clientEmail");
     if (phone) attachRussianPhoneMask(phone);
@@ -749,6 +751,7 @@
   }
 
   function installClientSubmitHandler() {
+    if (document.getElementById("clientForm")?.dataset.clientFlow) return;
     const form = document.getElementById("clientForm");
     if (!form || typeof postJson !== "function") return;
     form.addEventListener("submit", async event => {
