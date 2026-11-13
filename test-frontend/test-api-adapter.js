@@ -151,7 +151,7 @@
     </div></section>
     <section data-client-step="1" aria-label="Задача" hidden><div class="intake-grid">
       <label>Регион<select id="clientRegion" required><option value="">Загрузка регионов…</option></select></label>
-      <div class="city-field"><label for="clientCity">Город</label><input id="clientCity" role="combobox" aria-autocomplete="list" aria-controls="clientCityOptions" aria-expanded="false" autocomplete="off" placeholder="Начните вводить город" required><div id="clientCityOptions" class="city-suggestions" role="listbox" aria-label="Города" hidden></div><p class="field-hint">Выберите город из подсказок. Регион уточнится автоматически.${local ? " В локальном просмотре используется тестовая выборка справочника." : ""}</p></div>
+      <div class="city-field"><label for="clientCity">Город</label><input id="clientCity" role="combobox" aria-autocomplete="list" aria-controls="clientCityOptions" aria-expanded="false" autocomplete="off" placeholder="Начните вводить город" required><div id="clientCityOptions" class="city-suggestions" role="listbox" aria-label="Города" hidden></div><p class="field-hint">Выберите город из подсказок. Регион уточнится автоматически.${local ? " Используется локальный кэш справочника; без него доступна только тестовая выборка." : ""}</p></div>
       <label class="intake-wide">Что нужно сделать<textarea name="task" rows="5" placeholder="Объект, необходимые работы и ожидаемый результат" required></textarea></label>
       <label class="intake-wide">Желаемый срок (необязательно)<input name="deadline" placeholder="Например: начать в течение 2 недель"></label>
       <div class="intake-wide client-documents"><strong>Исходные документы</strong><p class="field-hint">ТЗ, чертежи, сметы, фотографии. Загрузка файлов в TEST пока отключена. Отправьте задачу без вложений — документы можно будет обсудить отдельно.</p><input id="clientFiles" type="file" multiple disabled aria-label="Исходные документы: загрузка отключена"><p class="field-hint">Файлы не выбраны и не будут отправлены.</p></div>
@@ -182,15 +182,23 @@
   city.addEventListener('input',()=>{selectedCity=null;renderCities();});
   city.addEventListener('focus',()=>{if(!selectedCity)renderCities();});
   region.addEventListener('change',()=>{selectedCity=null;city.value='';hideCities();});
+  function focusCityOption(button) {
+    if(!button)return;
+    button.focus({preventScroll:true});
+    // Keep keyboard selection visible without scrolling the entire form.
+    const top=button.offsetTop, bottom=top+button.offsetHeight;
+    if(top<cityList.scrollTop)cityList.scrollTop=top;
+    else if(bottom>cityList.scrollTop+cityList.clientHeight)cityList.scrollTop=bottom-cityList.clientHeight;
+  }
   city.addEventListener('keydown',e=>{
     if(e.key==='Escape'){hideCities();return;}
-    if(e.key==='ArrowDown'){e.preventDefault();if(cityList.hidden)renderCities();cityList.querySelector('button')?.focus({preventScroll:true});}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(cityList.hidden)renderCities();const buttons=cityList.querySelectorAll('button');focusCityOption(buttons[e.key==='ArrowDown'?0:buttons.length-1]);}
     if(e.key==='Enter' && !cityList.hidden){e.preventDefault();cityList.querySelector('button')?.click();}
   });
   cityList.addEventListener('keydown',e=>{
     const buttons=[...cityList.querySelectorAll('button')],index=buttons.indexOf(e.target);
     if(e.key==='Escape'){e.preventDefault();city.focus({preventScroll:true});hideCities();}
-    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const next=index+(e.key==='ArrowDown'?1:-1);if(next<0)city.focus({preventScroll:true});else buttons[Math.min(next,buttons.length-1)]?.focus({preventScroll:true});}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const next=index+(e.key==='ArrowDown'?1:-1);if(next<0)city.focus({preventScroll:true});else focusCityOption(buttons[Math.min(next,buttons.length-1)]);}
   });
   cityList.addEventListener('mousedown',e=>{if(e.target.closest('button'))e.preventDefault();});
   cityList.addEventListener('click',e=>{
@@ -205,12 +213,16 @@
     try {
       const regions=window.MALARS_TEST_DATA.REGIONS;
       let entries;
-      if(local) {
-        // Local preview never requests the external directory, even on cache miss.
-        entries=window.MALARS_LOCAL_CITY_FIXTURE;
-      } else {
+      // Reuse the contractor's existing directory cache and freshness rule.
+      // A missing/blocked cache must not prevent a local fixture or trigger a network request.
+      try {
         const cached=JSON.parse(localStorage.getItem('malars-test-russia-cities-v1')||'null');
-        if(cached?.savedAt && Date.now()-cached.savedAt<2592000000 && Array.isArray(cached.entries))entries=cached.entries;
+        if(cached?.savedAt && Date.now()-cached.savedAt<2592000000 && Array.isArray(cached.entries) && cached.entries.some(item=>item.regionCode))entries=cached.entries;
+      } catch (_) {}
+      if(local) {
+        // No external requests on localhost, including cache miss/expiry.
+        if(!entries?.length)entries=window.MALARS_LOCAL_CITY_FIXTURE;
+      } else {
         if(!entries?.length){
           const response=await fetch('https://api.hh.ru/areas/113?locale=RU');if(!response.ok)throw new Error('city directory unavailable');
           const root=await response.json();
@@ -306,8 +318,10 @@
     } catch(err){error(err.message||'Не удалось отправить задачу. Повторите попытку.');}
     finally{busy=false;form.removeAttribute('aria-busy');if(!submitted){form.querySelectorAll('button,input,select,textarea').forEach(x=>x.disabled=false);$('#clientFiles').disabled=true;}}
   },true);
+  let regionsInitialized=false;
   function regionsReady(){
-    const data=window.MALARS_TEST_DATA?.REGIONS;if(!data)return;
+    const data=window.MALARS_TEST_DATA?.REGIONS;if(!data || regionsInitialized)return;
+    regionsInitialized=true;
     region.replaceChildren(new Option('Выберите регион',''),...data.filter(([code])=>code!=='RU-ALL').map(([code,name])=>new Option(name,code)));
     loadCustomerCities();
   }
